@@ -1,0 +1,25 @@
+"""
+Represents a 'labeled' event on a given issue or pull request.
+"""
+type LabeledEvent implements Node {
+  """
+  Identifies the actor who performed the event.
+  """
+  actor: Actor
+
+  """
+  Identifies the date and time when the object was created.
+  """
+  createdAt: DateTime!
+  id: ID!
+
+  """
+  Identifies the label associated with the 'labeled' event.
+  """
+  label: Label!
+
+  """
+  Identifies the `Labelable` associated with the event.
+  """
+  labelable: Labelable!
+}

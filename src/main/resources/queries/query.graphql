@@ -1,0 +1,69 @@
+query {
+    organization(login: "blah") {
+        repo1: repository(name: "repo-one") {
+            pullRequests(states: OPEN, first: 100) {
+                edges {
+                    node {
+                        author {
+                            login
+                        }
+                        mergeable
+                        number
+                        title
+                        body
+                    }
+                    cursor
+                }
+            }
+        }
+        repo2: repository(name: "repo-two") {
+            pullRequests(states: OPEN, first: 100) {
+                edges {
+                    node {
+                        author {
+                            login
+                        }
+                        mergeable
+                        number
+                        title
+                        body
+                    }
+                    cursor
+                }
+            }
+        }
+        repo3: repository(name: "repo-three") {
+            pullRequests(states: OPEN, first: 100) {
+                edges {
+                    node {
+                        author {
+                            login
+                        }
+                        mergeable
+                        number
+                        title
+                        body
+                    }
+                    cursor
+                }
+            }
+        }
+        repo4: repository(name: "repo-four") {
+            pullRequests(states: OPEN, first: 100) {
+                edges {
+                    node {
+                        author {
+                            login
+                        }
+                        mergeable
+                        number
+                        title
+                        body
+                    }
+                    cursor
+                }
+            }
+        }
+    }
+}
+

@@ -1,0 +1,14 @@
+"""
+Ordering options for gist connections
+"""
+input GistOrder {
+  """
+  The ordering direction.
+  """
+  direction: OrderDirection!
+
+  """
+  The field to order repositories by.
+  """
+  field: GistOrderField!
+}
