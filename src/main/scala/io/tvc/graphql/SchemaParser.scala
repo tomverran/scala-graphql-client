@@ -23,9 +23,6 @@ object SchemaParser extends App {
     lines
   }
 
-  private val colon: Parser[Char] =
-    ws(char(':'))
-
   val description: Parser[Option[Description]] =
     ws(opt(validString.map(Description)))
 
@@ -45,7 +42,7 @@ object SchemaParser extends App {
     (description <~ str("union"), name, directives, unionMemberTypes).mapN(UnionTypeDefinition)
 
   private val inputValueDefinition: Parser[InputValueDefinition] =
-    (description, name <~ colon, `type`, opt(value), directives).mapN(InputValueDefinition)
+    (description, name <~ colon, `type`, opt(ws(char('=')) ~> value), directives).mapN(InputValueDefinition)
 
   private val argumentsDefinition: Parser[List[InputValueDefinition]] =
     ws(optRecParens(many(inputValueDefinition)).map(_.flatten))
@@ -71,6 +68,16 @@ object SchemaParser extends App {
   private val inputObjectTypeDefinition: Parser[InputObjectTypeDefinition] =
     (description <~ str("input"), name, directives, inputFieldsDefinition).mapN(InputObjectTypeDefinition)
 
+  private val typeDefinition: Parser[TypeDefinition] =
+    choice[TypeDefinition](
+      scalarTypeDefinition.widen,
+      enumTypeDefinition.widen,
+      unionTypeDefinition.widen,
+      interfaceTypeDefinition.widen,
+      objectTypeDefinition.widen,
+      inputObjectTypeDefinition.widen
+    )
+
   //high quality production ready testing system
   println(QueryParser.operationDefinition.parseOnly(load("/queries/query.graphql")).done)
   println(scalarTypeDefinition.parseOnly("\"blah\" scalar Foo @bar(reason: \"why\") @baz(what: 2)   "))
@@ -79,4 +86,5 @@ object SchemaParser extends App {
   println(interfaceTypeDefinition.parseOnly(load("/schemas/interface.idl")).done)
   println(objectTypeDefinition.parseOnly(load("/schemas/object.idl")).done)
   println(inputObjectTypeDefinition.parseOnly(load("/schemas/inputobject.idl")).done)
+  println(many(ws(typeDefinition)).parseOnly(load("/schemas/schema.idl")).done)
 }

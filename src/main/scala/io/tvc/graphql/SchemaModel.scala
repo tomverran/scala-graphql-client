@@ -69,27 +69,27 @@ object SchemaModel {
       name: Name,
       directives: List[Directive],
       values: List[FieldDefinition]
-    )
+    ) extends TypeDefinition
 
     case class UnionTypeDefinition(
       description: Desc,
       name: Name,
       directives: Directives,
       values: List[Name]
-    )
+    ) extends TypeDefinition
 
     case class EnumTypeDefinition(
       description: Desc,
       name: Name,
       directives: Directives,
       values: List[EnumValueDefinition]
-    )
+    ) extends TypeDefinition
 
     case class InputObjectTypeDefinition(
       description: Desc,
       name: Name,
       directive: Directives,
       values: List[InputValueDefinition]
-    )
+    ) extends TypeDefinition
   }
 }

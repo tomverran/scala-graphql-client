@@ -16,6 +16,9 @@ import io.tvc.graphql.CommonModel._
 
 object CommonParser {
 
+  val colon: Parser[Char] =
+    ws(char(':'))
+
   val name: Parser[Name] =
     ws((stringOf1(snakeCase(letter)) ~ stringOf(snakeCase(letterOrDigit))).map(combine).map(Name.apply))
 
@@ -56,9 +59,9 @@ object CommonParser {
    val`type`: Parser[Type] =
      (
        ws(
-         choice(
-           name.map(Type.NamedType(_): Type) ,
-           rec(discardRight(discardLeft(char('['), `type`), char(']'))).map(Type.ListType(_): Type),
+         choice[Type](
+           name.map(Type.NamedType).widen,
+           recSqBrackets(`type`).map(ListType).widen
          )
        ) ~ opt(ws(char('!')))
      ).map { case (t, bang) => bang.fold(t)(_ => NonNullType(t)) }
@@ -69,21 +72,24 @@ object CommonParser {
   val enumValue: Parser[EnumValue] =
     name.map(Value.EnumValue)
 
-  /**
-   * This currently only supports a subset of the value types supported in GraphQL,
-   * notably absent are list values and object values. Note we're just parsing here
-   * so we don't check the declared type of the value lines up to the actual type
-   */
+  lazy val objectValue: Parser[ObjectValue] =
+    recCurlyBrackets(commaSeparated((name <~ colon, value).mapN(ObjectField))).map(ObjectValue)
+
+  lazy val listValue: Parser[ListValue] =
+    recSqBrackets(commaSeparated(value)).map(ListValue)
+
   val value: Parser[Value] =
     ws(
       choice(
         choice(str("true").as(BooleanValue(true)), str("false").as(BooleanValue(false))),
-        validString.map(Value.StringValue(_): Value),
-        variable.map(Value.VariableValue(_): Value),
-        stringCI("null").as(Value.NullValue: Value),
-        int.map(Value.IntValue(_): Value),
-        float.map(Value.FloatValue(_): Value),
-        enumValue.widen
+        validString.map(Value.StringValue).widen,
+        variable.map(Value.VariableValue).widen,
+        stringCI("null").as(Value.NullValue).widen,
+        int.map(Value.IntValue).widen,
+        float.map(Value.FloatValue).widen,
+        objectValue.widen,
+        enumValue.widen,
+        listValue.widen
       )
     )
 

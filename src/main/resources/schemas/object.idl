@@ -1,25 +1,332 @@
 """
-Represents a 'labeled' event on a given issue or pull request.
+Represents a Git commit.
 """
-type LabeledEvent implements Node {
+type Commit implements GitObject & Node & Subscribable & UniformResourceLocatable {
   """
-  Identifies the actor who performed the event.
+  An abbreviated version of the Git object ID
   """
-  actor: Actor
+  abbreviatedOid: String!
 
   """
-  Identifies the date and time when the object was created.
+  The number of additions in this commit.
   """
-  createdAt: DateTime!
+  additions: Int!
+
+  """
+  The pull requests associated with a commit
+  """
+  associatedPullRequests(
+    """
+    Returns the elements in the list that come after the specified cursor.
+    """
+    after: String
+
+    """
+    Returns the elements in the list that come before the specified cursor.
+    """
+    before: String
+
+    """
+    Returns the first _n_ elements from the list.
+    """
+    first: Int
+
+    """
+    Returns the last _n_ elements from the list.
+    """
+    last: Int
+
+    """
+    Ordering options for pull requests.
+    """
+    orderBy: PullRequestOrder = {field: CREATED_AT, direction: ASC}
+  ): PullRequestConnection
+
+  """
+  Authorship details of the commit.
+  """
+  author: GitActor
+
+  """
+  Check if the committer and the author match.
+  """
+  authoredByCommitter: Boolean!
+
+  """
+  The datetime when this commit was authored.
+  """
+  authoredDate: DateTime!
+
+  """
+  Fetches `git blame` information.
+  """
+  blame(
+    """
+    The file whose Git blame information you want.
+    """
+    path: String!
+  ): Blame!
+
+  """
+  The number of changed files in this commit.
+  """
+  changedFiles: Int!
+
+  """
+  Comments made on the commit.
+  """
+  comments(
+    """
+    Returns the elements in the list that come after the specified cursor.
+    """
+    after: String
+
+    """
+    Returns the elements in the list that come before the specified cursor.
+    """
+    before: String
+
+    """
+    Returns the first _n_ elements from the list.
+    """
+    first: Int
+
+    """
+    Returns the last _n_ elements from the list.
+    """
+    last: Int
+  ): CommitCommentConnection!
+
+  """
+  The HTTP path for this Git object
+  """
+  commitResourcePath: URI!
+
+  """
+  The HTTP URL for this Git object
+  """
+  commitUrl: URI!
+
+  """
+  The datetime when this commit was committed.
+  """
+  committedDate: DateTime!
+
+  """
+  Check if commited via GitHub web UI.
+  """
+  committedViaWeb: Boolean!
+
+  """
+  Committership details of the commit.
+  """
+  committer: GitActor
+
+  """
+  The number of deletions in this commit.
+  """
+  deletions: Int!
+
+  """
+  The deployments associated with a commit.
+  """
+  deployments(
+    """
+    Returns the elements in the list that come after the specified cursor.
+    """
+    after: String
+
+    """
+    Returns the elements in the list that come before the specified cursor.
+    """
+    before: String
+
+    """
+    Environments to list deployments for
+    """
+    environments: [String!]
+
+    """
+    Returns the first _n_ elements from the list.
+    """
+    first: Int
+
+    """
+    Returns the last _n_ elements from the list.
+    """
+    last: Int
+
+    """
+    Ordering options for deployments returned from the connection.
+    """
+    orderBy: DeploymentOrder = {field: CREATED_AT, direction: ASC}
+  ): DeploymentConnection
+
+  """
+  The linear commit history starting from (and including) this commit, in the same order as `git log`.
+  """
+  history(
+    """
+    Returns the elements in the list that come after the specified cursor.
+    """
+    after: String
+
+    """
+    If non-null, filters history to only show commits with matching authorship.
+    """
+    author: CommitAuthor
+
+    """
+    Returns the elements in the list that come before the specified cursor.
+    """
+    before: String
+
+    """
+    Returns the first _n_ elements from the list.
+    """
+    first: Int
+
+    """
+    Returns the last _n_ elements from the list.
+    """
+    last: Int
+
+    """
+    If non-null, filters history to only show commits touching files under this path.
+    """
+    path: String
+
+    """
+    Allows specifying a beginning time or date for fetching commits.
+    """
+    since: GitTimestamp
+
+    """
+    Allows specifying an ending time or date for fetching commits.
+    """
+    until: GitTimestamp
+  ): CommitHistoryConnection!
   id: ID!
 
   """
-  Identifies the label associated with the 'labeled' event.
+  The Git commit message
   """
-  label: Label!
+  message: String!
 
   """
-  Identifies the `Labelable` associated with the event.
+  The Git commit message body
   """
-  labelable: Labelable!
+  messageBody: String!
+
+  """
+  The commit message body rendered to HTML.
+  """
+  messageBodyHTML: HTML!
+
+  """
+  The Git commit message headline
+  """
+  messageHeadline: String!
+
+  """
+  The commit message headline rendered to HTML.
+  """
+  messageHeadlineHTML: HTML!
+
+  """
+  The Git object ID
+  """
+  oid: GitObjectID!
+
+  """
+  The parents of a commit.
+  """
+  parents(
+    """
+    Returns the elements in the list that come after the specified cursor.
+    """
+    after: String
+
+    """
+    Returns the elements in the list that come before the specified cursor.
+    """
+    before: String
+
+    """
+    Returns the first _n_ elements from the list.
+    """
+    first: Int
+
+    """
+    Returns the last _n_ elements from the list.
+    """
+    last: Int
+  ): CommitConnection!
+
+  """
+  The datetime when this commit was pushed.
+  """
+  pushedDate: DateTime
+
+  """
+  The Repository this commit belongs to
+  """
+  repository: Repository!
+
+  """
+  The HTTP path for this commit
+  """
+  resourcePath: URI!
+
+  """
+  Commit signing information, if present.
+  """
+  signature: GitSignature
+
+  """
+  Status information for this commit
+  """
+  status: Status
+
+  """
+  Returns a URL to download a tarball archive for a repository.
+  Note: For private repositories, these links are temporary and expire after five minutes.
+  """
+  tarballUrl: URI!
+
+  """
+  Commit's root Tree
+  """
+  tree: Tree!
+
+  """
+  The HTTP path for the tree of this commit
+  """
+  treeResourcePath: URI!
+
+  """
+  The HTTP URL for the tree of this commit
+  """
+  treeUrl: URI!
+
+  """
+  The HTTP URL for this commit
+  """
+  url: URI!
+
+  """
+  Check if the viewer is able to change their subscription status for the repository.
+  """
+  viewerCanSubscribe: Boolean!
+
+  """
+  Identifies if the viewer is watching, not watching, or ignoring the subscribable entity.
+  """
+  viewerSubscription: SubscriptionState
+
+  """
+  Returns a URL to download a zipball archive for a repository.
+  Note: For private repositories, these links are temporary and expire after five minutes.
+  """
+  zipballUrl: URI!
 }

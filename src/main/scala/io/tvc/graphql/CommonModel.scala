@@ -13,6 +13,11 @@ object CommonModel {
   case class Argument(name: Name, value: Value)
 
   /**
+   * https://graphql.github.io/graphql-spec/June2018/#ObjectField
+   */
+  case class ObjectField(name: Name, value: Value)
+
+  /**
    * https://graphql.github.io/graphql-spec/June2018/#Variable
    */
   case class Variable(value: String) extends AnyVal
@@ -36,7 +41,7 @@ object CommonModel {
     case class BooleanValue(value: Boolean) extends Value
     case class ListValue(value: List[Value]) extends Value
     case class VariableValue(value: Variable) extends Value
-    case class ObjectValue(value: Map[String, Value]) extends Value
+    case class ObjectValue(value: List[ObjectField]) extends Value
   }
 
   /**
