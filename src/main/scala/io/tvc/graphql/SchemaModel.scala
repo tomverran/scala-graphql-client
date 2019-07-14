@@ -44,6 +44,7 @@ object SchemaModel {
 
   /**
    * https://graphql.github.io/graphql-spec/June2018/#TypeDefinition
+   * I think it might be nice to diverge from the schema to make these less huge
    */
   sealed trait TypeDefinition
 
