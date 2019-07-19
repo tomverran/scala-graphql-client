@@ -1,10 +1,10 @@
-package io.tvc.graphql
+package io.tvc.graphql.parsing
 
 import atto.Parser
 import atto.Parser.{Failure, Success, TResult}
-import atto.parser.character._
-import atto.parser.combinator._
-import atto.parser.text._
+import atto.parser.character.{char, whitespace}
+import atto.parser.combinator.{choice, discardLeft, many, opt}
+import atto.parser.text.stringCI
 import atto.parser.{character, combinator}
 import atto.syntax.parser._
 

@@ -1,18 +1,19 @@
-package io.tvc.graphql
+package io.tvc.graphql.parsing
 
 import atto.Parser
-import atto.parser.character._
-import atto.parser.combinator._
-import atto.parser.numeric._
-import atto.parser.text._
-import atto.syntax.parser._
+import atto.parser.character.{char, letter, letterOrDigit, satisfy}
+import atto.parser.combinator.{choice, many, manyN, opt}
+import atto.parser.numeric.{float, int}
+import atto.parser.text.{stringCI, stringOf, stringOf1}
 import cats.Monad
-import cats.syntax.apply._
+import Combinators._
+import io.tvc.graphql.parsing.CommonModel._
+import atto.parser.character._
+import atto.syntax.parser._
+import io.tvc.graphql.parsing.CommonModel.Type._
+import io.tvc.graphql.parsing.CommonModel.Value._
 import cats.syntax.functor._
-import io.tvc.graphql.Combinators._
-import io.tvc.graphql.CommonModel.Type._
-import io.tvc.graphql.CommonModel.Value._
-import io.tvc.graphql.CommonModel._
+import cats.syntax.apply._
 
 object CommonParser {
 

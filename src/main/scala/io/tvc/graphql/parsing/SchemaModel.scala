@@ -1,7 +1,7 @@
-package io.tvc.graphql
+package io.tvc.graphql.parsing
 
-import io.tvc.graphql.CommonModel._
-import io.tvc.graphql.CommonModel.Value._
+import io.tvc.graphql.parsing.CommonModel.Value.EnumValue
+import io.tvc.graphql.parsing.CommonModel._
 
 object SchemaModel {
 
@@ -46,7 +46,9 @@ object SchemaModel {
    * https://graphql.github.io/graphql-spec/June2018/#TypeDefinition
    * I think it might be nice to diverge from the schema to make these less huge
    */
-  sealed trait TypeDefinition
+  sealed trait TypeDefinition {
+    def name: Name
+  }
 
   object TypeDefinition {
 
@@ -92,4 +94,6 @@ object SchemaModel {
       values: List[InputValueDefinition]
     ) extends TypeDefinition
   }
+
+  type Schema = List[TypeDefinition]
 }

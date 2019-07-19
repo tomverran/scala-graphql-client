@@ -1,4 +1,4 @@
-package io.tvc.graphql
+package io.tvc.graphql.parsing
 
 object CommonModel {
 

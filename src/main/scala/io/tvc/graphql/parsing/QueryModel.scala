@@ -1,6 +1,6 @@
-package io.tvc.graphql
+package io.tvc.graphql.parsing
 
-import io.tvc.graphql.CommonModel._
+import io.tvc.graphql.parsing.CommonModel._
 
 object QueryModel {
 
