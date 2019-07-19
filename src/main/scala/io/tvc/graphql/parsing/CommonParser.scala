@@ -74,10 +74,10 @@ object CommonParser {
     name.map(Value.EnumValue)
 
   lazy val objectValue: Parser[ObjectValue] =
-    recCurlyBrackets(commaSeparated((name <~ colon, value).mapN(ObjectField))).map(ObjectValue)
+    recCurlyBrackets(many((name <~ colon, value).mapN(ObjectField))).map(ObjectValue)
 
   lazy val listValue: Parser[ListValue] =
-    recSqBrackets(commaSeparated(value)).map(ListValue)
+    recSqBrackets(many(value)).map(ListValue)
 
   val value: Parser[Value] =
     ws(
@@ -98,7 +98,7 @@ object CommonParser {
     (name <~ ws(char(':')), value).mapN(Argument.apply)
 
   val argumentList: Parser[List[Argument]] =
-    optRecParens(commaSeparated(argument)).map(_.flatten)
+    optRecParens(many(argument)).map(_.flatten)
 
   private val directive: Parser[Directive] =
     (ws(char('@')) ~> name, argumentList).mapN(Directive.apply)

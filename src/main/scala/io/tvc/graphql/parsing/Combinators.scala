@@ -42,7 +42,7 @@ object Combinators {
     * discard any trailing whitespace
    */
   def ws[A](p: => Parser[A]): Parser[A] =
-    p <~ many(whitespace)
+    p <~ many(whitespace | char(','))
 
   def oneOfChar(chars: Char*): Parser[Char] =
     choice(chars.map(char):_*)

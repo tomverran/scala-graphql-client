@@ -193,6 +193,8 @@ object TypeChecker extends App {
       } yield QueryResult.Object[FieldName](objectName, fields.toList)
     }.sequence
 
+  println(schema.parseOnly(load("/schemas/braintree.idl")))
+
   (
     schema.parseOnly(load("/schemas/schema.idl")).option,
     operationDefinition.parseOnly(load("/queries/query.graphql")).option
