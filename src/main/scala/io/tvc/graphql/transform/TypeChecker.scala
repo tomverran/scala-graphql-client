@@ -43,8 +43,8 @@ object TypeChecker extends App {
 
   object ComplexType {
 
-    def unapply(td: TypeDefinition): Option[ComplexType] =
-      td match {
+    def unapply(td: ResolvedType): Option[ComplexType] =
+      td.definition match {
         case o: ObjectTypeDefinition => Some(ComplexType(o.name, o.values))
         case o: InterfaceTypeDefinition => Some(ComplexType(o.name, o.values))
         case _ => None
@@ -53,11 +53,11 @@ object TypeChecker extends App {
 
   object ScalarType {
 
-    def unapply(td: TypeDefinition): Option[Name] =
-      td match {
-        case t: EnumTypeDefinition => Some(t.name)
-        case t: UnionTypeDefinition => Some(t.name)
-        case t: ScalarTypeDefinition => Some(t.name)
+    def unapply(td: ResolvedType): Option[Type] =
+      td.definition match {
+        case _: EnumTypeDefinition => Some(td.ref)
+        case _: UnionTypeDefinition => Some(td.ref)
+        case _: ScalarTypeDefinition => Some(td.ref)
         case _ => None
       }
   }
@@ -77,7 +77,7 @@ object TypeChecker extends App {
   sealed trait Output[A]
 
   object Output {
-    case class Field[A](name: A, fieldType: String) extends Output[A]
+    case class Field[A](name: A, fieldType: Type) extends Output[A]
     case class Object[A](name: A, fields: List[Field[A]]) extends Output[A]
   }
 
@@ -86,7 +86,7 @@ object TypeChecker extends App {
   object TypeError {
     case class MissingType(name: String) extends TypeError
     case class MissingField(name: String) extends TypeError
-    case class ScalarWithFields(scalar: String, field: Path) extends TypeError
+    case class ScalarWithFields(scalar: Type, field: Path) extends TypeError
   }
 
   type OrMissing[A] = Either[TypeError, A]
@@ -113,16 +113,23 @@ object TypeChecker extends App {
       .toRight(MissingField(s"${obj.name}.${field.value}"))
       .map(_.`type`)
 
+  /**
+    * A resolved type is a reference to a particular type (with modifiers like non null etc)
+    * and the actual definition of that type (scalar, object etc)
+    */
+  case class ResolvedType(ref: Type, definition: TypeDefinition)
 
-  def findType(schema: Schema, tpe: Type): OrMissing[TypeDefinition] =
-    (predefinedTypes ++ schema).find(_.name == typeName(tpe)).toRight(MissingType(typeName(tpe).value))
+  def resolveType(schema: Schema, tpe: Type): OrMissing[ResolvedType] =
+    (predefinedTypes ++ schema).find(_.name == typeName(tpe))
+      .map(t => ResolvedType(ref = tpe, definition = t))
+      .toRight(MissingType(typeName(tpe).value))
 
   /**
     * Given a list of schema types
     * try to find a root ObjectTypeDefinition
     */
-  def root(schema: Schema): OrMissing[TypeDefinition] =
-    findType(schema, NamedType(Name("Query")))
+  def root(schema: Schema): OrMissing[ResolvedType] =
+    resolveType(schema, NamedType(Name("Query")))
 
   /**
     * Given a selectionSet and a function operating on the path to a leaf,
@@ -130,9 +137,11 @@ object TypeChecker extends App {
     */
   def traverse[A](selectionSet: SelectionSet)(f: Path => A): List[A] =
     Monad[List].tailRecM(Path(Vector.empty) -> selectionSet) { case (ns, set) =>
-      set.fields.map(f => FieldName(f.alias.map(_.value), f.name.value) -> f.selectionSet).map {
-        case (fieldName, Some(child)) => Left(Path(ns.values :+ fieldName) -> child)
-        case (fieldName, None) => Right(f(Path(ns.values :+ fieldName)))
+      set.fields.map(f => FieldName(f.alias.map(_.value), f.name.value) -> f.selectionSet).flatMap {
+        case (fieldName, Some(child)) =>
+          List(Right(f(Path(ns.values :+ fieldName))), Left(Path(ns.values :+ fieldName) -> child))
+        case (fieldName, None) =>
+          List(Right(f(Path(ns.values :+ fieldName))))
       }
     }
 
@@ -140,23 +149,23 @@ object TypeChecker extends App {
     * Given a schema and the fully qualified name of a query field
     * dig through the schema to find out what the type of the field should be
     */
-  def resolveType(schema: Schema)(path: Path): OrMissing[Output.Field[Path]] =
+  def createFields(schema: Schema)(path: Path): OrMissing[Output.Field[Path]] =
     root(schema).flatMap { root =>
       Monad[OrMissing].tailRecM(path -> root) {
-        case (Path(Vector()), ScalarType(obj)) =>
-          Right(Right(Output.Field(path, obj.value)))
+        case (Path(Vector()), obj) =>
+          Right(Right(Output.Field(path, obj.ref)))
         case (p, ScalarType(obj)) =>
-          Left(ScalarWithFields(obj.value, p))
+          Left(ScalarWithFields(obj, p))
         case (Path(p +: ps), ComplexType(obj)) =>
           for {
             field <- findFieldType(p, obj)
-            fieldType <- findType(schema, field)
+            fieldType <- resolveType(schema, field)
           } yield Left(Path(ps) -> fieldType)
       }
   }
 
   def something(schema: Schema, query: OperationDefinition): Unit = {
-    traverse(query.selectionSet)(f => f -> resolveType(schema)(f)).foreach(println)
+    traverse(query.selectionSet)(f => f -> createFields(schema)(f)).foreach(println)
   }
 
  (
