@@ -2,11 +2,13 @@ package io.tvc.graphql.transform
 
 import atto.syntax.parser._
 import cats.Monad
+import cats.data.NonEmptyList
 import cats.instances.either._
 import cats.instances.list._
 import cats.instances.option._
 import cats.instances.string._
 import cats.syntax.apply._
+import cats.syntax.traverse._
 import io.tvc.graphql.parsing.CommonModel.Type.{ListType, NamedType, NonNullType}
 import io.tvc.graphql.parsing.CommonModel.{Name, Type}
 import io.tvc.graphql.parsing.QueryModel.{OperationDefinition, SelectionSet}
@@ -68,17 +70,19 @@ object TypeChecker extends App {
    */
   case class Path(values: Vector[FieldName]) {
     override def toString: String = values.mkString(".")
+    def last: FieldName = values.lastOption.getOrElse(FieldName(None, "Root"))
+    def up: Path = Path(values.dropRight(1))
   }
 
   /**
    * The object model is what we create by combining a query and a schema,
     * it produces a nested JSON like tree structure of fields + objects
    */
-  sealed trait Output[A]
+  sealed trait QueryResult[A]
 
-  object Output {
-    case class Field[A](name: A, fieldType: Type) extends Output[A]
-    case class Object[A](name: A, fields: List[Field[A]]) extends Output[A]
+  object QueryResult {
+    case class Field[A](name: A, fieldType: Type) extends QueryResult[A]
+    case class Object[A](name: A, fields: List[Field[A]]) extends QueryResult[A]
   }
 
   sealed trait TypeError
@@ -110,7 +114,7 @@ object TypeChecker extends App {
   def findFieldType(field: FieldName, obj: ComplexType): OrMissing[Type] =
     obj.fields
       .find(_.name.value == field.value)
-      .toRight(MissingField(s"${obj.name}.${field.value}"))
+      .toRight(MissingField(s"${obj.name.value}.${field.value}"))
       .map(_.`type`)
 
   /**
@@ -119,6 +123,11 @@ object TypeChecker extends App {
     */
   case class ResolvedType(ref: Type, definition: TypeDefinition)
 
+  /**
+    * Try to dig the given type out of the schema,
+    * we ignore any type modifiers and just search for a type with the same name
+    * but we include the input type including modifiers in the response
+    */
   def resolveType(schema: Schema, tpe: Type): OrMissing[ResolvedType] =
     (predefinedTypes ++ schema).find(_.name == typeName(tpe))
       .map(t => ResolvedType(ref = tpe, definition = t))
@@ -132,16 +141,23 @@ object TypeChecker extends App {
     resolveType(schema, NamedType(Name("Query")))
 
   /**
-    * Given a selectionSet and a function operating on the path to a leaf,
+    * Given a selectionSet and a function operating on a list of paths making up the fields
     * descend through the set and all nested sets and apply the function to all leaves
     */
-  def traverse[A](selectionSet: SelectionSet)(f: Path => A): List[A] =
-    Monad[List].tailRecM(Path(Vector.empty) -> selectionSet) { case (ns, set) =>
-      set.fields.map(f => FieldName(f.alias.map(_.value), f.name.value) -> f.selectionSet).flatMap {
-        case (fieldName, Some(child)) =>
-          List(Right(f(Path(ns.values :+ fieldName))), Left(Path(ns.values :+ fieldName) -> child))
-        case (fieldName, None) =>
-          List(Right(f(Path(ns.values :+ fieldName))))
+  def traverse[A](selectionSet: SelectionSet)(f: NonEmptyList[Path] => A): List[A]  =
+    Monad[List].tailRecM(selectionSet -> Path(Vector.empty)) { case (set, path) =>
+      set.fields.flatMap { field =>
+        field.selectionSet.map { nested =>
+          Left(nested -> Path(path.values :+ FieldName(field.alias.map(_.value), field.name.value)))
+        }
+      } ++ NonEmptyList.fromList(set.fields).toList.map { nelFields =>
+        Right(
+          f(
+            nelFields.map { field =>
+              Path(path.values :+ FieldName(field.alias.map(_.value), field.name.value))
+            }
+          )
+        )
       }
     }
 
@@ -149,11 +165,11 @@ object TypeChecker extends App {
     * Given a schema and the fully qualified name of a query field
     * dig through the schema to find out what the type of the field should be
     */
-  def createFields(schema: Schema)(path: Path): OrMissing[Output.Field[Path]] =
+  def createField(schema: Schema)(path: Path): OrMissing[QueryResult.Field[FieldName]] =
     root(schema).flatMap { root =>
       Monad[OrMissing].tailRecM(path -> root) {
         case (Path(Vector()), obj) =>
-          Right(Right(Output.Field(path, obj.ref)))
+          Right(Right(QueryResult.Field(path.last, obj.ref)))
         case (p, ScalarType(obj)) =>
           Left(ScalarWithFields(obj, p))
         case (Path(p +: ps), ComplexType(obj)) =>
@@ -162,14 +178,23 @@ object TypeChecker extends App {
             fieldType <- resolveType(schema, field)
           } yield Left(Path(ps) -> fieldType)
       }
-  }
+    }
 
-  def something(schema: Schema, query: OperationDefinition): Unit = {
-    traverse(query.selectionSet)(f => f -> createFields(schema)(f)).foreach(println)
-  }
+  /**
+    * Traverse through each selection set in the query
+    * and create typed objects from its fields
+    */
+  def createOutput(schema: Schema, query: OperationDefinition): OrMissing[List[QueryResult[FieldName]]] =
+    traverse(query.selectionSet) { fields =>
+      for {
+        obj <- createField(schema)(fields.head.up)
+        fields <- fields.traverse(createField(schema))
+        objectName = FieldName(obj.name.alias, typeName(obj.fieldType).value)
+      } yield QueryResult.Object[FieldName](objectName, fields.toList)
+    }.sequence
 
- (
-   schema.parseOnly(load("/schemas/schema.idl")).option,
-   operationDefinition.parseOnly(load("/queries/query.graphql")).option
- ).mapN(something)
+  (
+    schema.parseOnly(load("/schemas/schema.idl")).option,
+    operationDefinition.parseOnly(load("/queries/query.graphql")).option
+  ).mapN(createOutput(_, _).fold(println(_), _.foreach(println)))
 }
