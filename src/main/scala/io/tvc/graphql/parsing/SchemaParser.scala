@@ -16,12 +16,6 @@ import scala.io.Source
 
 object SchemaParser {
 
-  def load(file: String): String = {
-    val source = Source.fromURL(getClass.getResource(file))
-    val lines = source.getLines.mkString("\n")
-    source.close
-    lines
-  }
 
   val description: Parser[Option[Description]] =
     ws(opt(validString.map(Description)))
