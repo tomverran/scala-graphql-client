@@ -11,7 +11,7 @@ import io.tvc.graphql.parsing.SchemaModel.TypeDefinition._
 import io.tvc.graphql.parsing.SchemaModel.{FieldDefinition, Schema, TypeDefinition}
 import io.tvc.graphql.transform.TypeChecker.TypeError.{ExpectedFields, MissingType, OrMissing}
 import io.tvc.graphql.transform.TypeTree.TypeModifier.NullableType
-import io.tvc.graphql.transform.TypeTree.{FieldName, RecTypeTree, TypeModifier}
+import io.tvc.graphql.transform.TypeTree.{FieldName, Metadata, RecTypeTree, TypeModifier}
 
 import scala.annotation.tailrec
 
@@ -65,8 +65,8 @@ object TypeChecker {
     */
   private def modifiers(tpe: Type, mods: Vector[TypeModifier] = Vector.empty): Vector[TypeModifier] =
     tpe match {
-      case Type.NonNullType(t) => modifiers(t, mods)
-      case a if !mods.lastOption.contains(NullableType) => modifiers(a, mods :+ NullableType)
+      case Type.NonNullType(t) => modifiers(t, mods :+ TypeModifier.NonNullType)
+      case a if !mods.lastOption.contains(TypeModifier.NonNullType) && !mods.lastOption.contains(TypeModifier.NullableType) => modifiers(a, mods :+ NullableType)
       case Type.ListType(a) => modifiers(a, mods :+ TypeModifier.ListType)
       case Type.NamedType(_) => mods
     }
@@ -77,9 +77,17 @@ object TypeChecker {
     */
   def createScalar(c: Cursor): OrMissing[TypeTree[Nothing]] =
     c.focus.tpe match {
-      case e: EnumTypeDefinition => Right(TypeTree.Enum(e.name.value, e.values.map(_.value.value.value)))
-      case s: ScalarTypeDefinition => Right(TypeTree.Scalar(s.name.value))
-      case _ => Left(ExpectedFields(c.focus.tpe.name.value))
+      case e: EnumTypeDefinition =>
+        Right(
+          TypeTree.Enum(
+            Metadata(e.description.map(_.value), e.name.value),
+            e.values.map(_.value.value.value)
+          )
+        )
+      case s: ScalarTypeDefinition =>
+        Right(TypeTree.Scalar(Metadata(s.description.map(_.value), s.name.value)))
+      case _ =>
+        Left(ExpectedFields(c.focus.tpe.name.value))
     }
 
   sealed trait TypeError
@@ -152,7 +160,7 @@ object TypeChecker {
     TypeTree.Field(
       `type` = tpe,
       name = c.focus.name,
-      modifiers = modifiers(c.parent.fold(c.focus.definition)(_.definition).`type`).toList
+      modifiers = modifiers(c.focus.definition.`type`).toList
     )
 
   /**
@@ -170,7 +178,12 @@ object TypeChecker {
     selectionSet.fields.traverse {
       case f @ Node(other) => cursor.down(f).flatMap(c => createTree(c, other).map(createField(c)))
       case f               => cursor.down(f).flatMap(c => createScalarField(c))
-    }.map(fields => TypeTree.obj(cursor.focus.tpe.name.value, fields))
+    }.map { fields =>
+      TypeTree.obj(
+        Metadata(cursor.focus.tpe.description.map(_.value), cursor.focus.tpe.name.value),
+        fields
+      )
+    }
 
   /**
     * Perform the type checking, that is go through all the fields in the query,

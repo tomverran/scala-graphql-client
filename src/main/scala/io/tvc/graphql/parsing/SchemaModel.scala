@@ -47,6 +47,7 @@ object SchemaModel {
    * I think it might be nice to diverge from the schema to make these less huge
    */
   sealed trait TypeDefinition {
+    def description: Desc
     def name: Name
   }
 
