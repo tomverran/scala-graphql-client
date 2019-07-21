@@ -18,6 +18,6 @@ object Main extends App {
   for {
     sch <- schema.parseOnly(load("/schemas/schema.idl")).option
     query <- operationDefinition.parseOnly(load("/queries/query.graphql")).option
-  } yield TypeChecker.objects(sch, query).fold(println(_), _.foreach(println(_)))
+  } yield TypeChecker.run(sch, query).fold(println(_), println(_))
 
 }
