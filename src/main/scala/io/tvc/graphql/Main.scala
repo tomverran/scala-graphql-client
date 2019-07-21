@@ -2,7 +2,7 @@ package io.tvc.graphql
 import atto.syntax.parser._
 import io.tvc.graphql.parsing.QueryParser.operationDefinition
 import io.tvc.graphql.parsing.SchemaParser.schema
-import io.tvc.graphql.transform.{TypeChecker, TypeDeduplicator}
+import io.tvc.graphql.transform.{ScalaCodeGen, TypeChecker, TypeDeduplicator}
 
 import scala.io.Source
 
@@ -17,7 +17,7 @@ object Main extends App {
 
   for {
     sch <- schema.parseOnly(load("/schemas/schema.idl")).option
-    query <- operationDefinition.parseOnly(load("/queries/query.graphql")).option
-  } yield TypeChecker.run(sch, query).fold(println(_), TypeDeduplicator.run(_).foreach(println))
+    query <- operationDefinition.parseOnly(load("/queries/tom.graphql")).option
+  } yield TypeChecker.run(sch, query).fold(println(_), r => println(ScalaCodeGen.generate(TypeDeduplicator.run(r))))
 
 }

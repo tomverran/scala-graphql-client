@@ -2,7 +2,7 @@ package io.tvc.graphql.transform
 
 import cats.Monad
 import cats.data.State
-import io.tvc.graphql.transform.TypeTree.{Enum, Object, RecTypeTree, Scalar, Union}
+import io.tvc.graphql.transform.TypeTree.{Enum, Metadata, Object, RecTypeTree, Scalar, Union}
 
 object TypeDeduplicator {
 
@@ -12,14 +12,14 @@ object TypeDeduplicator {
   type TypeState[A] = State[TypeStore, A]
 
   def name(t: FlatType): TypeRef =
-    TypeRef(t.name)
+    TypeRef(t.meta.name)
 
   def rename(typeTree: FlatType, f: String => String): FlatType =
     typeTree match {
-      case Scalar(name) => Scalar(f(name))
-      case Enum(name, vs) => Enum(f(name), vs)
-      case Union(name, vs) => Union(f(name), vs)
-      case Object(name, vs) => Object(f(name), vs)
+      case Scalar(m) => Scalar(Metadata(m.comment, f(m.name)))
+      case Enum(m, vs) => Enum(Metadata(m.comment, f(m.name)), vs)
+      case Union(m, vs) => Union(Metadata(m.comment, f(m.name)), vs)
+      case Object(m, vs) => Object(Metadata(m.comment, f(m.name)), vs)
     }
 
   /**
