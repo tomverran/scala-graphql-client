@@ -9,9 +9,9 @@ import io.tvc.graphql.parsing.CommonModel.{Name, Type}
 import io.tvc.graphql.parsing.QueryModel.{Field, OperationDefinition, SelectionSet}
 import io.tvc.graphql.parsing.SchemaModel.TypeDefinition._
 import io.tvc.graphql.parsing.SchemaModel.{FieldDefinition, Schema, TypeDefinition}
-import io.tvc.graphql.transform.TypeChecker.TypeError.{ExpectedFields, MissingType, OrMissing, Todo}
-import io.tvc.graphql.transform.TypeChecker.TypeModifier.fromType
-import io.tvc.graphql.transform.TypeTree.{Fix, RecTypeTree}
+import io.tvc.graphql.transform.TypeChecker.TypeError.{ExpectedFields, MissingType, OrMissing}
+import io.tvc.graphql.transform.TypeTree.TypeModifier.NullableType
+import io.tvc.graphql.transform.TypeTree.{FieldName, RecTypeTree, TypeModifier}
 
 import scala.annotation.tailrec
 
@@ -60,42 +60,22 @@ object TypeChecker {
   }
 
   /**
-    * The name of a field in the output AST,
-    * we include alias information for deduplication
+    * Given a type, dig through it to find out what the modifiers are
+    * They should then be applied left-to-right to the eventual type name
     */
-  case class FieldName(alias: Option[String], value: String) {
-    override def toString: String = (alias.toList :+ value).mkString(":")
-  }
-
-  /**
-    * A modifier for a type,
-    * i.e. the type is a list type etc.
-    * Modifiers should be applied recursively in order
-    */
-  sealed trait TypeModifier
-
-  object TypeModifier {
-
-    case object ListType extends TypeModifier
-    case object NullableType extends TypeModifier
-
-    private def create(tpe: Type, mods: Vector[TypeModifier]): Vector[TypeModifier] =
-      tpe match {
-        case Type.NonNullType(t) => create(t, mods)
-        case a if !mods.lastOption.contains(NullableType) => create(a, mods :+ TypeModifier.NullableType)
-        case Type.ListType(a) => create(a, mods :+ TypeModifier.ListType)
-        case Type.NamedType(_) => mods
-      }
-
-    def fromType(tpe: Type): List[TypeModifier] =
-      create(tpe, Vector.empty).toList
-  }
+  private def modifiers(tpe: Type, mods: Vector[TypeModifier] = Vector.empty): Vector[TypeModifier] =
+    tpe match {
+      case Type.NonNullType(t) => modifiers(t, mods)
+      case a if !mods.lastOption.contains(NullableType) => modifiers(a, mods :+ NullableType)
+      case Type.ListType(a) => modifiers(a, mods :+ TypeModifier.ListType)
+      case Type.NamedType(_) => mods
+    }
 
   /**
     * Given a cursor try to turn it into a Scalar type tree by matching on it's current definition
     * Will fail if the definition isn't an enum or a scalar type
     */
-  def createFromScalar(c: Cursor): OrMissing[TypeTree[Nothing]] =
+  def createScalar(c: Cursor): OrMissing[TypeTree[Nothing]] =
     c.focus.tpe match {
       case e: EnumTypeDefinition => Right(TypeTree.Enum(e.name.value, e.values.map(_.value.value.value)))
       case s: ScalarTypeDefinition => Right(TypeTree.Scalar(s.name.value))
@@ -169,14 +149,18 @@ object TypeChecker {
     * then create a TypeTree field with the given inlined type
     */
   private def createField(c: Cursor)(tpe: RecTypeTree): TypeTree.Field[RecTypeTree] =
-    TypeTree.Field(c.focus.name, tpe, fromType( c.parent.fold(c.focus.definition)(_.definition).`type`))
+    TypeTree.Field(
+      `type` = tpe,
+      name = c.focus.name,
+      modifiers = modifiers(c.parent.fold(c.focus.definition)(_.definition).`type`).toList
+    )
 
   /**
     * Create a field from a cursor, assuming the cursor is pointing
     * at a scalar type definition. Will fail with a TypeError if it isn't
     */
   private def createScalarField(cursor: Cursor): Either[TypeError, TypeTree.Field[RecTypeTree]] =
-    createFromScalar(cursor).map(f => createField(cursor)(Fix[TypeTree](f)))
+    createScalar(cursor).map(f => createField(cursor)(Fix[TypeTree](f)))
 
   /**
     * Given a recursive SelectionSet, go down through it
