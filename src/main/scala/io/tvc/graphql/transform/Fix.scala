@@ -1,9 +1,10 @@
 package io.tvc.graphql.transform
 
-import cats.Traverse
+import cats.{Id, Monad, Traverse}
 import cats.instances.either._
 import cats.syntax.functor._
 import cats.syntax.traverse._
+import cats.syntax.flatMap._
 
 import scala.language.higherKinds
 
@@ -27,8 +28,15 @@ object Fix {
     * but it does the job for now
     */
   def fold[F[+_]: Traverse, A](in: Fix[F])(f: F[A] => A): A =
+    foldF[F, Id, A](in)(f)
+
+  /**
+    * Same as above but works with functions returning results lifted into a Monad, G
+    * Also brutally non stack safe (I think)
+    */
+  def foldF[F[+_]: Traverse, G[_]: Monad, A](in: Fix[F])(f: F[A] => G[A]): G[A] =
     partition(in) match {
       case Right(v) => f(v)
-      case Left(v) => f(v.map(fold(_)(f)))
+      case Left(v) => v.traverse(foldF(_)(f)).flatMap(f)
     }
 }
