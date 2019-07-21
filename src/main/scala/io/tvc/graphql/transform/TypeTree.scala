@@ -8,7 +8,9 @@ import cats.{Applicative, Eval, Traverse}
 
 import scala.language.higherKinds
 
-sealed trait TypeTree[+A]
+sealed trait TypeTree[+A] {
+  def name: String
+}
 
 object TypeTree {
 
