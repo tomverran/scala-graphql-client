@@ -11,6 +11,7 @@ import io.tvc.graphql.parsing.SchemaModel.TypeDefinition._
 import io.tvc.graphql.parsing.SchemaModel.{FieldDefinition, Schema, TypeDefinition}
 import io.tvc.graphql.transform.TypeChecker.TypeError.{ExpectedFields, MissingType, OrMissing, Todo}
 import io.tvc.graphql.transform.TypeChecker.TypeModifier.fromType
+import io.tvc.graphql.transform.TypeTree.{Fix, RecTypeTree}
 
 import scala.annotation.tailrec
 
@@ -90,21 +91,11 @@ object TypeChecker {
       create(tpe, Vector.empty).toList
   }
 
-  sealed trait TypeTree
-
-  object TypeTree {
-    case class Scalar(name: String) extends TypeTree
-    case class Enum(name: String, fields: List[String]) extends TypeTree
-    case class Union(name: String, fields: List[TypeTree]) extends TypeTree
-    case class Object(name: String, fields: List[Field]) extends TypeTree
-    case class Field(name: FieldName, `type`: TypeTree, modifiers: List[TypeModifier])
-  }
-
   /**
     * Given a cursor try to turn it into a Scalar type tree by matching on it's current definition
     * Will fail if the definition isn't an enum or a scalar type
     */
-  def createFromScalar(c: Cursor): OrMissing[TypeTree] =
+  def createFromScalar(c: Cursor): OrMissing[TypeTree[Nothing]] =
     c.focus.tpe match {
       case e: EnumTypeDefinition => Right(TypeTree.Enum(e.name.value, e.values.map(_.value.value.value)))
       case s: ScalarTypeDefinition => Right(TypeTree.Scalar(s.name.value))
@@ -177,31 +168,31 @@ object TypeChecker {
     * Given a cursor and the type for a field
     * then create a TypeTree field with the given inlined type
     */
-  private def createField(c: Cursor)(tpe: TypeTree): TypeTree.Field =
+  private def createField(c: Cursor)(tpe: RecTypeTree): TypeTree.Field[RecTypeTree] =
     TypeTree.Field(c.focus.name, tpe, fromType( c.parent.fold(c.focus.definition)(_.definition).`type`))
 
   /**
     * Create a field from a cursor, assuming the cursor is pointing
     * at a scalar type definition. Will fail with a TypeError if it isn't
     */
-  private def createScalarField(cursor: Cursor): Either[TypeError, TypeTree.Field] =
-    createFromScalar(cursor).map(createField(cursor))
+  private def createScalarField(cursor: Cursor): Either[TypeError, TypeTree.Field[RecTypeTree]] =
+    createFromScalar(cursor).map(f => createField(cursor)(Fix[TypeTree](f)))
 
   /**
     * Given a recursive SelectionSet, go down through it
     * and create a TypeTree by inlining all the type definitions of it's fields
     */
-  private def createTree(cursor: Cursor, selectionSet: SelectionSet): Either[TypeError, TypeTree] =
+  private def createTree(cursor: Cursor, selectionSet: SelectionSet): Either[TypeError, RecTypeTree] =
     selectionSet.fields.traverse {
       case f @ Node(other) => cursor.down(f).flatMap(c => createTree(c, other).map(createField(c)))
       case f               => cursor.down(f).flatMap(c => createScalarField(c))
-    }.map(fields => TypeTree.Object(cursor.focus.tpe.name.value, fields))
+    }.map(fields => TypeTree.obj(cursor.focus.tpe.name.value, fields))
 
   /**
     * Perform the type checking, that is go through all the fields in the query,
     * find out what their type should be and inline that type into a TypeTree
     */
-  def run(schema: Schema, operationDefinition: OperationDefinition): OrMissing[TypeTree] =
+  def run(schema: Schema, operationDefinition: OperationDefinition): OrMissing[RecTypeTree] =
     for {
       root <- findTypeDefinition(schema, NamedType(Name("Query")))
       queryDef = FieldDefinition(None, Name("Query"), List.empty, NamedType(Name("Query")), List.empty)
