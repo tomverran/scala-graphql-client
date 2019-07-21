@@ -1,16 +1,15 @@
-package io.tvc.graphql
+package io.tvc.graphql.parsing
 
 import atto.Parser
-import atto.parser.character._
-import atto.parser.combinator._
+import atto.parser.character.char
+import atto.parser.combinator.{err, many, ok, opt}
 import atto.syntax.parser._
 import cats.syntax.apply._
-import cats.syntax.functor._
-import io.tvc.graphql.Combinators._
-import io.tvc.graphql.CommonModel._
-import io.tvc.graphql.CommonParser._
-import io.tvc.graphql.QueryModel.OperationType.Query
-import io.tvc.graphql.QueryModel._
+import io.tvc.graphql.parsing.Combinators._
+import io.tvc.graphql.parsing.CommonModel._
+import io.tvc.graphql.parsing.CommonParser._
+import io.tvc.graphql.parsing.QueryModel.OperationType.Query
+import io.tvc.graphql.parsing.QueryModel._
 
 object QueryParser {
 

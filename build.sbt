@@ -11,3 +11,5 @@ scalacOptions ++= Seq(
 libraryDependencies ++= List(
   "org.tpolecat" %% "atto-core" % "0.6.5"
 )
+
+addCompilerPlugin("org.typelevel" %% "kind-projector" % "0.10.3")

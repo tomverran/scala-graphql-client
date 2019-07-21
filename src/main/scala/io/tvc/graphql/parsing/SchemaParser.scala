@@ -1,27 +1,21 @@
-package io.tvc.graphql
+package io.tvc.graphql.parsing
 
 import atto.Parser
-import atto.parser.character._
+import atto.parser.character.char
 import atto.parser.combinator._
 import atto.syntax.parser._
 import cats.syntax.apply._
 import cats.syntax.functor._
-import io.tvc.graphql.Combinators._
-import io.tvc.graphql.CommonModel._
-import io.tvc.graphql.CommonParser._
-import io.tvc.graphql.SchemaModel.TypeDefinition._
-import io.tvc.graphql.SchemaModel._
+import io.tvc.graphql.parsing.Combinators._
+import io.tvc.graphql.parsing.CommonModel._
+import io.tvc.graphql.parsing.CommonParser._
+import io.tvc.graphql.parsing.SchemaModel.TypeDefinition._
+import io.tvc.graphql.parsing.SchemaModel._
 
 import scala.io.Source
 
-object SchemaParser extends App {
+object SchemaParser {
 
-  def load(file: String): String = {
-    val source = Source.fromURL(getClass.getResource(file))
-    val lines = source.getLines.mkString("\n")
-    source.close
-    lines
-  }
 
   val description: Parser[Option[Description]] =
     ws(opt(validString.map(Description)))
@@ -78,13 +72,16 @@ object SchemaParser extends App {
       inputObjectTypeDefinition.widen
     )
 
+  val schema: Parser[Schema] =
+    many(typeDefinition)
+
   //high quality production ready testing system
-  println(QueryParser.operationDefinition.parseOnly(load("/queries/query.graphql")).done)
-  println(scalarTypeDefinition.parseOnly("\"blah\" scalar Foo @bar(reason: \"why\") @baz(what: 2)   "))
-  println(enumTypeDefinition.parseOnly(load("/schemas/enum.idl")).done)
-  println(unionTypeDefinition.parseOnly(load("/schemas/union.idl")).done)
-  println(interfaceTypeDefinition.parseOnly(load("/schemas/interface.idl")).done)
-  println(objectTypeDefinition.parseOnly(load("/schemas/object.idl")).done)
-  println(inputObjectTypeDefinition.parseOnly(load("/schemas/inputobject.idl")).done)
-  println(many(ws(typeDefinition)).parseOnly(load("/schemas/schema.idl")).done)
+//  println(QueryParser.operationDefinition.parseOnly(load("/queries/query.graphql")).done)
+//  println(scalarTypeDefinition.parseOnly("\"blah\" scalar Foo @bar(reason: \"why\") @baz(what: 2)   "))
+//  println(enumTypeDefinition.parseOnly(load("/schemas/enum.idl")).done)
+//  println(unionTypeDefinition.parseOnly(load("/schemas/union.idl")).done)
+//  println(interfaceTypeDefinition.parseOnly(load("/schemas/interface.idl")).done)
+//  println(objectTypeDefinition.parseOnly(load("/schemas/object.idl")).done)
+//  println(inputObjectTypeDefinition.parseOnly(load("/schemas/inputobject.idl")).done)
+//  println(schema.parseOnly(load("/schemas/schema.idl")).done)
 }
