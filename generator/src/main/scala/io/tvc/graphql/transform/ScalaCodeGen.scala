@@ -56,14 +56,14 @@ object ScalaCodeGen {
       case _ => ""
     }
 
-  private def obj(name: String, contents: String) =
-    s"object $name {\n\n${indent(contents)}\n}\n"
+  private def obj(name: String, namespace: String, contents: String) =
+    s"package $namespace\n\nobject $name {\n\n${indent(contents)}\n}\n"
 
   private def queryVal(query: String): String = {
     val lines = query.lines.map(l => s"|$l").toList.foldSmash("\"\"\"\n", "\n", "\n\"\"\"")
-    s"val query: String = \n${indent(lines)}"
+    s"val query: String = \n${indent(lines)}.stripMargin"
   }
 
-  def generate(name: String, query: String, input: List[FlatType]): String =
-    obj(name, (input.map(scalaCode).filter(_.nonEmpty).sorted :+ queryVal(query)).mkString("\n\n"))
+  def generate(name: String, namespace: String, query: String, input: List[FlatType]): String =
+    obj(name, namespace, (input.map(scalaCode).filter(_.nonEmpty).sorted :+ queryVal(query)).mkString("\n\n"))
 }
