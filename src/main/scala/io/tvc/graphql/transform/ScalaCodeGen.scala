@@ -9,7 +9,10 @@ import io.tvc.graphql.transform.TypeTree.{Scalar, TypeModifier}
 
 object ScalaCodeGen {
 
-  private val indent: String = " "
+  private val indent: String = "  "
+
+  private def indent(s: String): String =
+    s.lines.map(l => if (l.isEmpty) "" else s"$indent$l").mkString("\n")
 
   private def blockComment(s: String): String =
     s.lines.toList.filter(_.nonEmpty).map(l => s"$indent* $l").foldSmash("/**\n", "\n", s"\n$indent*/\n")
@@ -53,6 +56,14 @@ object ScalaCodeGen {
       case _ => ""
     }
 
-  def generate(input: List[FlatType]): String =
-    input.map(scalaCode).filter(_.nonEmpty).sorted.mkString("\n\n")
+  private def obj(name: String, contents: String) =
+    s"object $name {\n\n${indent(contents)}\n}\n"
+
+  private def queryVal(query: String): String = {
+    val lines = query.lines.map(l => s"|$l").toList.foldSmash("\"\"\"\n", "\n", "\n\"\"\"")
+    s"val query: String = \n${indent(lines)}"
+  }
+
+  def generate(name: String, query: String, input: List[FlatType]): String =
+    obj(name, (input.map(scalaCode).filter(_.nonEmpty).sorted :+ queryVal(query)).mkString("\n\n"))
 }

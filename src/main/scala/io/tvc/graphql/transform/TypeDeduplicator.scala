@@ -42,6 +42,6 @@ object TypeDeduplicator {
     * Turn a recursive tree of types into a flat list of types
     * with any duplicate types being renamed to avoid clashes
     */
-  def run(tree: RecTypeTree): List[FlatType] =
+  def deduplicate(tree: RecTypeTree): List[FlatType] =
     Fix.foldF[TypeTree, TypeState, TypeRef](tree)(register).runS(Map.empty).value.values.toList
 }

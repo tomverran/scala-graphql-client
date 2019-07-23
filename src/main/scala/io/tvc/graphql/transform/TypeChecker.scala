@@ -66,7 +66,8 @@ object TypeChecker {
   private def modifiers(tpe: Type, mods: Vector[TypeModifier] = Vector.empty): Vector[TypeModifier] =
     tpe match {
       case Type.NonNullType(t) => modifiers(t, mods :+ TypeModifier.NonNullType)
-      case a if !mods.lastOption.contains(TypeModifier.NonNullType) && !mods.lastOption.contains(TypeModifier.NullableType) => modifiers(a, mods :+ NullableType)
+      case a if !mods.lastOption.contains(TypeModifier.NonNullType) &&
+                !mods.lastOption.contains(TypeModifier.NullableType) => modifiers(a, mods :+ NullableType)
       case Type.ListType(a) => modifiers(a, mods :+ TypeModifier.ListType)
       case Type.NamedType(_) => mods
     }

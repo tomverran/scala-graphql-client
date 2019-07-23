@@ -4,7 +4,9 @@ import java.nio.file.{Files, Paths}
 import atto.syntax.parser._
 import io.tvc.graphql.parsing.QueryParser.operationDefinition
 import io.tvc.graphql.parsing.SchemaParser.schema
-import io.tvc.graphql.transform.{ScalaCodeGen, TypeChecker, TypeDeduplicator}
+import io.tvc.graphql.transform.ScalaCodeGen.generate
+import io.tvc.graphql.transform.TypeChecker
+import io.tvc.graphql.transform.TypeDeduplicator.deduplicate
 
 import scala.io.Source
 
@@ -19,8 +21,10 @@ object Main extends App {
 
   for {
     sch <- schema.parseOnly(load("/schemas/schema.idl")).either
-    query <- operationDefinition.parseOnly(load("/queries/query.graphql")).either
+    queryStr = load("/queries/query.graphql")
+    query <- operationDefinition.parseOnly(queryStr).either
+    name = query.name.fold("AnonymousQuery")(_.value.capitalize)
     tree <- TypeChecker.run(sch, query).left.map(te => s"$te")
-  } yield Files.write(Paths.get("output.scala"), ScalaCodeGen.generate(TypeDeduplicator.run(tree)).getBytes)
+  } yield Files.write(Paths.get(s"$name.scala"), generate( name, queryStr, deduplicate(tree) ).getBytes)
 
 }

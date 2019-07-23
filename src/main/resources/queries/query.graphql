@@ -1,4 +1,4 @@
-query {
+query foo {
     organization(login: "blah") {
         repo1: repository(name: "repo-one") {
             pullRequests(states: OPEN, first: 100) {
