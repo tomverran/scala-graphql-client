@@ -12,13 +12,10 @@ import io.tvc.graphql.parsing.CommonParser._
 import io.tvc.graphql.parsing.SchemaModel.TypeDefinition._
 import io.tvc.graphql.parsing.SchemaModel._
 
-import scala.io.Source
-
 object SchemaParser {
 
-
   val description: Parser[Option[Description]] =
-    ws(opt(validString.map(Description)))
+    ws(opt(validString.map(s => Description(s.trim))))
 
   private val scalarTypeDefinition: Parser[ScalarTypeDefinition] =
     (description <~ str("scalar"), name, directives).mapN(ScalarTypeDefinition)
@@ -72,8 +69,8 @@ object SchemaParser {
       inputObjectTypeDefinition.widen
     )
 
-  val schema: Parser[Schema] =
-    many(typeDefinition)
+  def parse(string: String): Either[String, List[TypeDefinition]] =
+    many1(typeDefinition).parseOnly(string).map(_.toList).either
 
   //high quality production ready testing system
 //  println(QueryParser.operationDefinition.parseOnly(load("/queries/query.graphql")).done)

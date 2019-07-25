@@ -34,13 +34,16 @@ object ScalaCodeGen {
     argList(fs.map(f => s"${f.name.alias.getOrElse(f.name.value)}: ${fieldType(f.`type`, f.modifiers)}"))
 
   private def caseClass(qr: TypeTree.Object[TypeRef]): String =
-    s"${qr.meta.comment.foldMap(blockComment)}case class ${qr.meta.name}${fields(qr.fields)}"
+    s"${qr.meta.comment.foldMap(blockComment)}@JsonCodec\ncase class ${qr.meta.name}${fields(qr.fields)}"
 
-  private def sealedTraitObj(qr: TypeTree.Enum): String =
-    s"object ${qr.meta.name} ${curlyBlock(qr.fields.map(f => s"case object $f extends ${qr.meta.name}"))}"
+  private def enumObj(qr: TypeTree.Enum): String = {
+    val values = qr.fields.map(f => s"case object $f extends ${qr.meta.name}")
+    val contents = curlyBlock(values :+ "val values = findValues")
+    s"object ${qr.meta.name} extends GraphQLEnum[${qr.meta.name}] $contents"
+  }
 
-  private def sealedTrait(qr: TypeTree.Enum): String =
-    s"sealed trait ${qr.meta.name}\n${sealedTraitObj(qr)}"
+  private def enum(qr: TypeTree.Enum): String =
+    s"sealed trait ${qr.meta.name} extends EnumEntry\n\n${enumObj(qr)}"
 
   private def scalar(s: Scalar): String =
     s.meta.name match {
@@ -51,19 +54,29 @@ object ScalaCodeGen {
   private def scalaCode(field: FlatType): String =
     field match {
       case o: TypeTree.Object[TypeRef] => caseClass(o)
-      case e: TypeTree.Enum => sealedTrait(e)
+      case e: TypeTree.Enum => enum(e)
       case s: TypeTree.Scalar => scalar(s)
       case _ => ""
     }
 
-  private def obj(name: String, contents: String) =
-    s"object $name {\n\n${indent(contents)}\n}\n"
+  private def obj(name: String, namespace: String, contents: String): String =
+    s"""
+       |package $namespace
+       |import io.tvc.graphql.Runtime._
+       |import io.circe.generic.JsonCodec
+       |import enumeratum._
+       |
+       |object $name {
+       |
+       ${contents.lines.map(l => s"|$indent$l").mkString("\n")}
+       |}
+     """.stripMargin.trim
 
   private def queryVal(query: String): String = {
     val lines = query.lines.map(l => s"|$l").toList.foldSmash("\"\"\"\n", "\n", "\n\"\"\"")
-    s"val query: String = \n${indent(lines)}"
+    s"val query: String = \n${indent(lines)}.stripMargin"
   }
 
-  def generate(name: String, query: String, input: List[FlatType]): String =
-    obj(name, (input.map(scalaCode).filter(_.nonEmpty).sorted :+ queryVal(query)).mkString("\n\n"))
+  def generate(name: String, namespace: String, query: String, input: List[FlatType]): String =
+    obj(name, namespace, (input.map(scalaCode).filter(_.nonEmpty).sorted :+ queryVal(query)).mkString("\n\n"))
 }
