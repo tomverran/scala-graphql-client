@@ -9,59 +9,148 @@ the idea is then to write code to stitch the resulting data together to produce 
 containing the unique types used by each GraphQL query.
 
 Currently the example GitHub query in `src/main/resources/query.graphql` produces the following:
-Which is close to okay, but the various `Option[List[Option]]]`s need to be fixed
+
 
 ```scala
-/**
- * A repository contains the content for a project.
- */
-case class Repository(pullRequests: PullRequestConnection)
+package com.github.api
+import io.tvc.graphql.Runtime._
+import io.circe.generic.JsonCodec
+import enumeratum._
 
-/**
- * A repository pull request.
- */
-case class PullRequest(
- author: Option[Actor],
- mergeable: MergeableState,
- number: Int,
- title: String,
- body: String
-)
+object Foo {
 
-/**
- * An account on GitHub, with one or more owners, that has repositories, members and teams.
- */
-case class Organization(
- repo1: Option[Repository],
- repo2: Option[Repository],
- repo3: Option[Repository],
- repo4: Option[Repository]
-)
-
-/**
- * An edge in a connection.
- */
-case class PullRequestEdge(node: Option[PullRequest], cursor: String)
-
-/**
- * Represents an object which can take actions on GitHub. Typically a User or Bot.
- */
-case class Actor(login: String)
-
-/**
- * The connection type for PullRequest.
- */
-case class PullRequestConnection(edges: Option[List[Option[PullRequestEdge]]])
-
-/**
- * The query root of GitHub's GraphQL interface.
- */
-case class Query(organization: Option[Organization])
-
-sealed trait MergeableState
-object MergeableState {
- case object CONFLICTING extends MergeableState
- case object MERGEABLE extends MergeableState
- case object UNKNOWN extends MergeableState
+  /**
+    * A repository contains the content for a project.
+    */
+  @JsonCodec
+  case class Repository(pullRequests: PullRequestConnection)
+  
+  /**
+    * A repository pull request.
+    */
+  @JsonCodec
+  case class PullRequest(
+    author: Option[Actor],
+    mergeable: MergeableState,
+    number: Int,
+    title: String,
+    body: String
+  )
+  
+  /**
+    * An account on GitHub, with one or more owners, that has repositories, members and teams.
+    */
+  @JsonCodec
+  case class Organization(
+    repo1: Option[Repository],
+    repo2: Option[Repository],
+    repo3: Option[Repository],
+    repo4: Option[Repository]
+  )
+  
+  /**
+    * An edge in a connection.
+    */
+  @JsonCodec
+  case class PullRequestEdge(node: Option[PullRequest], cursor: String)
+  
+  /**
+    * Represents an object which can take actions on GitHub. Typically a User or Bot.
+    */
+  @JsonCodec
+  case class Actor(login: String)
+  
+  /**
+    * The connection type for PullRequest.
+    */
+  @JsonCodec
+  case class PullRequestConnection(edges: Option[List[Option[PullRequestEdge]]])
+  
+  /**
+    * The query root of GitHub's GraphQL interface.
+    */
+  @JsonCodec
+  case class Query(organization: Option[Organization])
+  
+  sealed trait MergeableState extends EnumEntry
+  
+  object MergeableState extends GraphQLEnum[MergeableState] {
+    case object CONFLICTING extends MergeableState
+    case object MERGEABLE extends MergeableState
+    case object UNKNOWN extends MergeableState
+    val values = findValues
+  }
+  
+  val query: String = 
+    """
+    |query foo {
+    |    organization(login: "blah") {
+    |        repo1: repository(name: "repo-one") {
+    |            pullRequests(states: OPEN, first: 100) {
+    |                edges {
+    |                    node {
+    |                        author {
+    |                            login
+    |                        }
+    |                        mergeable
+    |                        number
+    |                        title
+    |                        body
+    |                    }
+    |                    cursor
+    |                }
+    |            }
+    |        }
+    |        repo2: repository(name: "repo-two") {
+    |            pullRequests(states: OPEN, first: 100) {
+    |                edges {
+    |                    node {
+    |                        author {
+    |                            login
+    |                        }
+    |                        mergeable
+    |                        number
+    |                        title
+    |                        body
+    |                    }
+    |                    cursor
+    |                }
+    |            }
+    |        }
+    |        repo3: repository(name: "repo-three") {
+    |            pullRequests(states: OPEN, first: 100) {
+    |                edges {
+    |                    node {
+    |                        author {
+    |                            login
+    |                        }
+    |                        mergeable
+    |                        number
+    |                        title
+    |                        body
+    |                    }
+    |                    cursor
+    |                }
+    |            }
+    |        }
+    |        repo4: repository(name: "repo-four") {
+    |            pullRequests(states: OPEN, first: 100) {
+    |                edges {
+    |                    node {
+    |                        author {
+    |                            login
+    |                        }
+    |                        mergeable
+    |                        number
+    |                        title
+    |                        body
+    |                    }
+    |                    cursor
+    |                }
+    |            }
+    |        }
+    |    }
+    |}
+    """.stripMargin
 }
 ```
