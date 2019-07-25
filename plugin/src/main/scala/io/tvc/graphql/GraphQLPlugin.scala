@@ -1,7 +1,7 @@
 package io.tvc.graphql
 import java.nio.file.Files
 
-import com.softwaremill.sttp._
+import buildinfo.BuildInfo
 import sbt.Keys._
 import sbt._
 
@@ -22,9 +22,6 @@ object GraphQLPlugin extends AutoPlugin {
 
   import autoImport._
   val runGeneration = Def.task {
-
-    println("Generating sources")
-    implicit val http = HttpURLConnectionBackend()
 
     def fetchSchema(q: Queries): Either[String, String] =
       Try(Files.readAllLines(q.schema.toPath).asScala.mkString("\n")).toEither.left.map(_.getMessage)
@@ -49,7 +46,8 @@ object GraphQLPlugin extends AutoPlugin {
   }
 
   override lazy val projectSettings: Seq[Setting[_]] = Seq(
+    libraryDependencies += "io.tvc" %% "runtime" % BuildInfo.version,
     ThisBuild / graphQLQueries := List.empty[Queries],
-    Compile / sourceGenerators += runGeneration
+    Compile   / sourceGenerators += runGeneration,
   )
 }
