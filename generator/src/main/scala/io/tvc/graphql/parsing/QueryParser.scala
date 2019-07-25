@@ -13,7 +13,7 @@ import io.tvc.graphql.parsing.QueryModel._
 
 object QueryParser {
 
-  val operationType: Parser[OperationType] =
+  private val operationType: Parser[OperationType] =
     name.flatMap {
       case Name("query") => ok(OperationType.Query)
       case Name("mutation") => ok(OperationType.Mutation)
@@ -21,22 +21,25 @@ object QueryParser {
       case Name(n) => err(s"Expected one of query/mutation/subscription, got $n")
     }
 
-  val variableDefinition: Parser[VariableDefinition] =
+  private val variableDefinition: Parser[VariableDefinition] =
     (
-      (variable <~ ws(char(':'))) ~ ws(`type`) ~ (ws(char('=')) ~> opt(value))
+      (variable <~ ws(char(':'))) ~ ws(`type`) ~ opt(ws(char('=')) ~> ws(value))
     ).map { case ((v, t), d) => VariableDefinition(v, t, d) }
 
-  lazy val field: Parser[Field] =
+  private lazy val field: Parser[Field] =
     rec((opt(name <~ ws(char(':'))), name, argumentList, opt(selectionSet)).mapN(Field.apply))
 
-  val selectionSet: Parser[SelectionSet] =
+  private val selectionSet: Parser[SelectionSet] =
     recCurlyBrackets(many(ws(field))).map(SelectionSet.apply)
 
-  val operationDefinition: Parser[OperationDefinition] =
+  private val operationDefinition: Parser[OperationDefinition] =
     (
       opt(operationType).map(_.getOrElse(Query)),
       ws(opt(name)),
-      optRecParens(commaSeparated(variableDefinition)).map(_.flatten),
+      optRecParens(many(variableDefinition)).map(_.flatten),
       selectionSet
     ).mapN(OperationDefinition.apply)
+
+  def parse(string: String): Either[String, OperationDefinition] =
+    operationDefinition.parseOnly(string).either
 }

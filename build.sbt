@@ -10,6 +10,7 @@ val generator = (project in file("generator"))
     name := "generator",
     libraryDependencies ++= List(
       "org.tpolecat" %% "atto-core" % "0.6.5",
+      "org.scalatest" %% "scalatest" % "3.0.8" % Test,
       compilerPlugin("org.typelevel" %% "kind-projector" % "0.10.3")
     )
   )
@@ -17,10 +18,7 @@ val generator = (project in file("generator"))
 val plugin = (project in file("plugin"))
   .enablePlugins(SbtPlugin)
   .dependsOn(generator)
-  .settings(
-    name := "plugin",
-    libraryDependencies += "com.softwaremill.sttp" %% "core" % "1.6.3"
-  )
+  .settings(name := "plugin")
 
 val root = (project in file("."))
   .aggregate(plugin, generator)
