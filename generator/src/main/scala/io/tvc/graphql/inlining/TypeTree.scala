@@ -1,11 +1,12 @@
-package io.tvc.graphql.transform
+package io.tvc.graphql.inlining
 
 import cats.instances.list._
 import cats.syntax.foldable._
 import cats.syntax.functor._
 import cats.syntax.traverse._
 import cats.{Applicative, Eval, Traverse}
-import io.tvc.graphql.transform.TypeTree.Metadata
+import io.tvc.graphql.recursion.Fix
+import io.tvc.graphql.inlining.TypeTree.Metadata
 
 import scala.language.higherKinds
 

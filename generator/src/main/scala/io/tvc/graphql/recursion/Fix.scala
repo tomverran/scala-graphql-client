@@ -1,10 +1,10 @@
-package io.tvc.graphql.transform
+package io.tvc.graphql.recursion
 
-import cats.{Id, Monad, Traverse}
 import cats.instances.either._
+import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.syntax.traverse._
-import cats.syntax.flatMap._
+import cats.{Id, Monad, Traverse}
 
 import scala.language.higherKinds
 
@@ -15,6 +15,13 @@ import scala.language.higherKinds
 case class Fix[F[+_]](unfix: F[Fix[F]])
 
 object Fix {
+
+  /**
+    * Given a seed value perform an effect to construct a tree
+    * The opposite of the folds below but just as thrillingly un stack safe
+    */
+  def unfoldF[F[+_]: Traverse, G[_]: Monad, A](a: A)(f: A => G[F[A]]): G[Fix[F]] =
+    f(a).flatMap(_.traverse(unfoldF(_)(f)).map(Fix(_)))
 
   /**
     * Find out if we're at the end of a tree by using the traverse instance of the fixed type

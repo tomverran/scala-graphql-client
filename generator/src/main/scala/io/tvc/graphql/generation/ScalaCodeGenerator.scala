@@ -1,13 +1,15 @@
-package io.tvc.graphql.transform
+package io.tvc.graphql.generation
+
+import TypeDeduplicator.{FlatType, TypeRef}
+import io.tvc.graphql.inlining.TypeTree
+import io.tvc.graphql.inlining.TypeTree.TypeModifier.{ListType, NonNullType, NullableType}
+import io.tvc.graphql.inlining.TypeTree.{Scalar, TypeModifier}
 import cats.instances.list._
 import cats.instances.option._
-import cats.instances.string._
 import cats.syntax.foldable._
-import io.tvc.graphql.transform.TypeDeduplicator.{FlatType, TypeRef}
-import io.tvc.graphql.transform.TypeTree.TypeModifier.{ListType, NonNullType, NullableType}
-import io.tvc.graphql.transform.TypeTree.{Scalar, TypeModifier}
+import cats.instances.string._
 
-object ScalaCodeGen {
+object ScalaCodeGenerator {
 
   private val indent: String = "  "
 

@@ -1,8 +1,10 @@
-package io.tvc.graphql.transform
+package io.tvc.graphql.generation
 
 import cats.Monad
 import cats.data.State
-import io.tvc.graphql.transform.TypeTree.{Enum, Metadata, Object, RecTypeTree, Scalar, Union}
+import io.tvc.graphql.inlining.TypeTree.{Enum, Metadata, Object, RecTypeTree, Scalar, Union}
+import io.tvc.graphql.inlining.TypeTree
+import io.tvc.graphql.recursion.Fix
 
 object TypeDeduplicator {
 
