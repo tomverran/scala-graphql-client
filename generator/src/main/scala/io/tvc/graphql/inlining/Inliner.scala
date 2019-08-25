@@ -1,13 +1,12 @@
 package io.tvc.graphql.inlining
 
-import io.tvc.graphql.parsing.QueryModel.OperationDefinition
-import io.tvc.graphql.parsing.SchemaModel.Schema
-import io.tvc.graphql.inlining.Utilities.TypeError.OrMissing
-import io.tvc.graphql.inlining.InputInliner.RecInputTypeTree
-import io.tvc.graphql.inlining.TypeTree.RecTypeTree
 import cats.instances.either._
 import cats.syntax.apply._
-import TypeTree.Object
+import io.tvc.graphql.inlining.InputInliner.{InputObject, RecInputTypeTree}
+import io.tvc.graphql.inlining.TypeTree.RecTypeTree
+import io.tvc.graphql.inlining.Utilities.TypeError.OrMissing
+import io.tvc.graphql.parsing.QueryModel.OperationDefinition
+import io.tvc.graphql.parsing.SchemaModel.Schema
 
 /**
   * Given a query and schema def, zip the two together and inline all the types
@@ -17,7 +16,7 @@ import TypeTree.Object
 object Inliner {
 
   case class InlinedQuery(
-    inputs: Object[RecInputTypeTree],
+    inputs: InputObject[RecInputTypeTree],
     output: RecTypeTree
   )
 

@@ -1,12 +1,10 @@
 package io.tvc.graphql.generation
 
 import cats.data.State
-import cats.instances.either._
-import cats.syntax.bifunctor._
 import cats.syntax.functor._
 import cats.syntax.traverse._
-import cats.{Monad, ~>}
-import io.tvc.graphql.inlining.InputInliner.{InputTypeTree, InputValue, RecInputTypeTree}
+import cats.{Monad, Traverse, ~>}
+import io.tvc.graphql.inlining.InputInliner.{InputObject, InputTypeTree, InputValue, RecInputTypeTree}
 import io.tvc.graphql.inlining.TypeTree
 import io.tvc.graphql.inlining.TypeTree.{Enum, Metadata, Object, RecTypeTree, Scalar, Union}
 import io.tvc.graphql.recursion.Fix
@@ -15,7 +13,7 @@ object TypeDeduplicator {
 
   case class Output(
     types: List[FlatType],
-    variables: Object[TypeRef]
+    variables: Object[InputValue[TypeRef]]
   )
 
   case class TypeRef(name: String)
@@ -29,6 +27,8 @@ object TypeDeduplicator {
   def name(t: FlatType): TypeRef =
     TypeRef(t.meta.name)
 
+  implicit val oTraverse: Traverse[InputObject] =
+    TypeTree.objTraverse.compose(InputValue.traverse)
 
   def rename(f: String => String): TypeTree ~> TypeTree = new (TypeTree ~> TypeTree) {
     def apply[A](fa: TypeTree[A]): TypeTree[A] =
@@ -63,7 +63,7 @@ object TypeDeduplicator {
     * Turn a recursive tree of types into a flat list of types
     * with any duplicate types being renamed to avoid clashes
     */
-  def deduplicate(variables: Object[RecInputTypeTree], output: RecTypeTree): Output =
+  def deduplicate(variables: InputObject[RecInputTypeTree], output: RecTypeTree): Output =
     (
       for {
         _ <- Fix.foldF[TypeTree, TypeState, TypeRef](output)(l => register(l.map(Left(_))))

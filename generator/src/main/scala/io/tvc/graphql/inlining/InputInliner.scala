@@ -42,12 +42,14 @@ object InputInliner {
       }
   }
 
+  type InputObject[A] = TypeTree.Object[InputValue[A]]
   type InputField = Field[InputValue[TypeDefinition]]
   type InputTypeTree[+A] = TypeTree[InputValue[A]]
   type RecInputTypeTree = Fix[InputTypeTree]
 
   implicit val traverse: Traverse[InputTypeTree] =
     TypeTree.ttTraverse.compose(InputValue.traverse)
+
 
   /**
     * Given an InputValueDefinition create an input field which
@@ -90,11 +92,15 @@ object InputInliner {
     * Run the inlining process on the given query, taking all of it's arguments
     * and thus producing a recursive list of input types the user must submit to the server
     */
-  def run(schema: Schema, query: List[VariableDefinition]): OrMissing[Object[RecInputTypeTree]] =
+  def run(schema: Schema, query: List[VariableDefinition]): OrMissing[InputObject[RecInputTypeTree]] =
     query.traverse { v =>
       findTypeDefinition(schema, v.`type`).flatMap { td =>
         unfoldF(td)(t => simple(t).orElse(complex(schema, t))).map { tree =>
-          Field(FieldName(None, v.variable.value), tree, Utilities.modifiers(v.`type`).toList)
+          Field(
+            FieldName(None, v.variable.value),
+            InputValue(default = v.default.map(_.toString), value = tree),
+            Utilities.modifiers(v.`type`).toList
+          )
         }
       }
     }.map { fields =>

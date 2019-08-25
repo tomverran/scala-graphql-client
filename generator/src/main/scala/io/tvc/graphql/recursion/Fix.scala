@@ -4,7 +4,7 @@ import cats.instances.either._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.syntax.traverse._
-import cats.{Id, Monad, Traverse, ~>}
+import cats.{Id, Monad, Traverse}
 
 import scala.language.higherKinds
 
@@ -46,10 +46,4 @@ object Fix {
       case Right(v) => f(v)
       case Left(v) => v.traverse(foldF(_)(f)).flatMap(f)
     }
-
-  /**
-    * Apply a natural transformation to to the fixed recursive type
-    */
-  def transform[F[+_]: Traverse, G[+_]](in: Fix[F])(f: F ~> G): Fix[G] =
-    fold[F, Fix[G]](in)(fa => Fix[G](f.apply(fa)))
 }

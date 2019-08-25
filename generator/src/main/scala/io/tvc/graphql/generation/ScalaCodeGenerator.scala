@@ -1,14 +1,15 @@
 package io.tvc.graphql.generation
 
-import TypeDeduplicator.{FlatType, TypeRef}
+import cats.instances.list._
+import cats.instances.option._
+import cats.instances.string._
+import cats.syntax.foldable._
+import cats.syntax.functor._
+import io.tvc.graphql.generation.TypeDeduplicator.{FlatType, TypeRef}
+import io.tvc.graphql.inlining.InputInliner.InputValue
 import io.tvc.graphql.inlining.TypeTree
 import io.tvc.graphql.inlining.TypeTree.TypeModifier.{ListType, NonNullType, NullableType}
 import io.tvc.graphql.inlining.TypeTree.{Scalar, TypeModifier}
-import cats.instances.list._
-import cats.instances.option._
-import cats.syntax.foldable._
-import cats.instances.string._
-import io.tvc.graphql.inlining.InputInliner.InputValue
 
 object ScalaCodeGenerator {
 
@@ -75,11 +76,14 @@ object ScalaCodeGenerator {
        |}
      """.stripMargin.trim
 
-  private def queryVal(query: String): String = {
-    val lines = query.lines.map(l => s"|$l").toList.foldSmash("\"\"\"\n", "\n", "\n\"\"\"")
-    s"val query: String = \n${indent(lines)}.stripMargin"
+  private def queryDefn(variables: TypeTree.Object[InputValue[TypeRef]]) =
+    s"def query${fields(variables.fields.map(_.map[Either[TypeRef, InputValue[TypeRef]]](Right(_))))}"
+
+  private def queryVal(variables: TypeTree.Object[InputValue[TypeRef]], query: String): String = {
+    val lines = query.dropWhile(_ != '{').lines.map(l => s"|$l").toList.foldSmash("\"\"\"\n", "\n", "\n\"\"\"")
+    s"${queryDefn(variables)}: String = \n${indent(lines)}.stripMargin"
   }
 
   def generate(name: String, namespace: String, query: String, input: TypeDeduplicator.Output): String =
-    obj(name, namespace, (input.types.map(scalaCode).filter(_.nonEmpty).sorted :+ queryVal(query)).mkString("\n\n"))
+    obj(name, namespace, (input.types.map(scalaCode).filter(_.nonEmpty).sorted :+ queryVal(input.variables, query)).mkString("\n\n"))
 }
