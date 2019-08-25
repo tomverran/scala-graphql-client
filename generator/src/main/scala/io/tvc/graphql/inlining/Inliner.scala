@@ -7,6 +7,7 @@ import io.tvc.graphql.inlining.InputInliner.RecInputTypeTree
 import io.tvc.graphql.inlining.TypeTree.RecTypeTree
 import cats.instances.either._
 import cats.syntax.apply._
+import TypeTree.Object
 
 /**
   * Given a query and schema def, zip the two together and inline all the types
@@ -16,14 +17,14 @@ import cats.syntax.apply._
 object Inliner {
 
   case class InlinedQuery(
-    inputs: List[RecInputTypeTree],
+    inputs: Object[RecInputTypeTree],
     output: RecTypeTree
   )
 
   def apply(schema: Schema, operationDefinition: OperationDefinition): OrMissing[InlinedQuery] =
     (
-      InputInliner.run(schema, operationDefinition),
-      OutputInliner.run(schema, operationDefinition)
+      InputInliner.run(schema, operationDefinition.variableDefinitions),
+      OutputInliner.run(schema, operationDefinition.selectionSet)
     ).mapN(InlinedQuery.apply)
 
 }

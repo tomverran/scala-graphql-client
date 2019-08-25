@@ -8,6 +8,7 @@ import cats.instances.list._
 import cats.instances.option._
 import cats.syntax.foldable._
 import cats.instances.string._
+import io.tvc.graphql.inlining.InputInliner.InputValue
 
 object ScalaCodeGenerator {
 
@@ -32,10 +33,10 @@ object ScalaCodeGenerator {
       case (n, NullableType) => s"Option[$n]"
     }
 
-  private def fields(fs: List[TypeTree.Field[TypeRef]]): String =
-    argList(fs.map(f => s"${f.name.alias.getOrElse(f.name.value)}: ${fieldType(f.`type`, f.modifiers)}"))
+  private def fields(fs: List[TypeTree.Field[Either[TypeRef, InputValue[TypeRef]]]]): String =
+    argList(fs.map(f => s"${f.name.alias.getOrElse(f.name.value)}: ${fieldType(f.`type`.map(_.value).merge, f.modifiers)}"))
 
-  private def caseClass(qr: TypeTree.Object[TypeRef]): String =
+  private def caseClass(qr: TypeTree.Object[Either[TypeRef, InputValue[TypeRef]]]): String =
     s"${qr.meta.comment.foldMap(blockComment)}@JsonCodec\ncase class ${qr.meta.name}${fields(qr.fields)}"
 
   private def enumObj(qr: TypeTree.Enum): String = {
@@ -55,7 +56,7 @@ object ScalaCodeGenerator {
 
   private def scalaCode(field: FlatType): String =
     field match {
-      case o: TypeTree.Object[TypeRef] => caseClass(o)
+      case o: TypeTree.Object[Either[TypeRef, InputValue[TypeRef]]] => caseClass(o)
       case e: TypeTree.Enum => enum(e)
       case s: TypeTree.Scalar => scalar(s)
       case _ => ""
@@ -79,6 +80,6 @@ object ScalaCodeGenerator {
     s"val query: String = \n${indent(lines)}.stripMargin"
   }
 
-  def generate(name: String, namespace: String, query: String, input: List[FlatType]): String =
-    obj(name, namespace, (input.map(scalaCode).filter(_.nonEmpty).sorted :+ queryVal(query)).mkString("\n\n"))
+  def generate(name: String, namespace: String, query: String, input: TypeDeduplicator.Output): String =
+    obj(name, namespace, (input.types.map(scalaCode).filter(_.nonEmpty).sorted :+ queryVal(query)).mkString("\n\n"))
 }

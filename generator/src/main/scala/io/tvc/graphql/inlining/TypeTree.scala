@@ -35,6 +35,15 @@ object TypeTree {
     override def toString: String = (alias.toList :+ value).mkString(":")
   }
 
+  implicit val fieldTraverse: Traverse[Field] = new Traverse[Field] {
+    def traverse[G[_]: Applicative, A, B](fa: Field[A])(f: A => G[B]): G[Field[B]] =
+      f(fa.`type`).map(b => fa.copy(`type` = b))
+    def foldLeft[A, B](fa: Field[A], b: B)(f: (B, A) => B): B =
+      f(b, fa.`type`)
+    def foldRight[A, B](fa: Field[A], lb: Eval[B])(f: (A, Eval[B]) => Eval[B]): Eval[B] =
+      f(fa.`type`, lb)
+  }
+
   /**
     * A modifier for a type,
     * i.e. the type is a list type etc.
@@ -59,6 +68,15 @@ object TypeTree {
   def obj(name: Metadata, fields: List[Field[RecTypeTree]]): RecTypeTree =
     Fix[TypeTree](Object(name, fields))
 
+  implicit val objTraverse: Traverse[Object] = new Traverse[Object] {
+    def traverse[G[_]: Applicative, A, B](fa: Object[A])(f: A => G[B]): G[Object[B]] =
+      fa.fields.traverse(fld => f(fld.`type`).map(r => fld.copy(`type` = r))).map(fs => fa.copy(fields = fs))
+    def foldLeft[A, B](fa: Object[A], b: B)(f: (B, A) => B): B =
+      fa.fields.foldLeft(b) { case (bb, fld) => f(bb, fld.`type`) }
+    def foldRight[A, B](fa: Object[A], lb: Eval[B])(f: (A, Eval[B]) => Eval[B]): Eval[B] =
+      fa.fields.foldr(lb) { case (fld, bb) => f(fld.`type`, bb) }
+  }
+
   /**
     * This brutal traverse instance is used to be able to
     * deal with the above recursive tree structure (i.e. nested in a Fix)
@@ -68,13 +86,8 @@ object TypeTree {
       fa match {
         case e: Enum => G.pure(e)
         case s: Scalar => G.pure(s)
-        case u: Union[A] =>
-          u.fields.traverse(f)
-            .map(fs => u.copy(fields = fs))
-        case o: Object[A] =>
-          o.fields.traverse(fld => f(fld.`type`)
-            .map(r => fld.copy(`type` = r)))
-            .map(fs => o.copy(fields = fs))
+        case u: Union[A] => u.fields.traverse(f).map(fs => u.copy(fields = fs))
+        case o: Object[A] => o.traverse(f).widen
       }
 
     def foldLeft[A, B](fa: TypeTree[A], b: B)(f: (B, A) => B): B =
@@ -82,7 +95,7 @@ object TypeTree {
         case _: Enum => b
         case _: Scalar => b
         case u: Union[A] => u.fields.foldLeft(b)(f)
-        case o: Object[A] => o.fields.foldLeft(b) { case (bb, fld) => f(bb, fld.`type`) }
+        case o: Object[A] => o.foldLeft(b)(f)
       }
 
     def foldRight[A, B](fa: TypeTree[A], lb: Eval[B])(f: (A, Eval[B]) => Eval[B]): Eval[B] =
@@ -90,7 +103,7 @@ object TypeTree {
         case _: Enum => lb
         case _: Scalar => lb
         case u: Union[A] => u.fields.foldr(lb)(f)
-        case o: Object[A] => o.fields.foldr(lb) { case (fld, bb) => f(fld.`type`, bb) }
+        case o: Object[A] => o.foldRight(lb)(f)
       }
   }
 }

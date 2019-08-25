@@ -14,7 +14,7 @@ class InputInlinerTest extends WordSpec with Matchers {
       val s = SchemaParser.parse(Loader.load("/schemas/github.idl")).right.get
 
 
-      println(InputInliner.run(s, q))
+      println(InputInliner.run(s, q.variableDefinitions))
       pending
 
     }

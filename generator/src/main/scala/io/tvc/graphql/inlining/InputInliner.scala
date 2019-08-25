@@ -6,7 +6,7 @@ import cats.syntax.either._
 import cats.syntax.functor._
 import cats.syntax.traverse._
 import cats.{Applicative, Eval, Traverse}
-import io.tvc.graphql.parsing.QueryModel.OperationDefinition
+import io.tvc.graphql.parsing.QueryModel.{OperationDefinition, VariableDefinition}
 import io.tvc.graphql.parsing.SchemaModel.TypeDefinition.InputObjectTypeDefinition
 import io.tvc.graphql.parsing.SchemaModel.{InputValueDefinition, Schema, TypeDefinition}
 import io.tvc.graphql.recursion.Fix
@@ -90,10 +90,14 @@ object InputInliner {
     * Run the inlining process on the given query, taking all of it's arguments
     * and thus producing a recursive list of input types the user must submit to the server
     */
-  def run(schema: Schema, query: OperationDefinition): OrMissing[List[RecInputTypeTree]] =
-    query.variableDefinitions.traverse { v =>
+  def run(schema: Schema, query: List[VariableDefinition]): OrMissing[Object[RecInputTypeTree]] =
+    query.traverse { v =>
       findTypeDefinition(schema, v.`type`).flatMap { td =>
-        unfoldF(td)(t => simple(t).orElse(complex(schema, t)))
+        unfoldF(td)(t => simple(t).orElse(complex(schema, t))).map { tree =>
+          Field(FieldName(None, v.variable.value), tree, Utilities.modifiers(v.`type`).toList)
+        }
       }
+    }.map { fields =>
+      Object(meta = Metadata(comment = None, name = "Inputs"), fields = fields)
     }
 }

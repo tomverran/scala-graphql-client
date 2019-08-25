@@ -9,7 +9,7 @@ import io.tvc.graphql.inlining.Utilities.TypeError._
 import io.tvc.graphql.inlining.Utilities._
 import io.tvc.graphql.parsing.CommonModel.Name
 import io.tvc.graphql.parsing.CommonModel.Type.NamedType
-import io.tvc.graphql.parsing.QueryModel.{Field, OperationDefinition, SelectionSet}
+import io.tvc.graphql.parsing.QueryModel.{Field, SelectionSet}
 import io.tvc.graphql.parsing.SchemaModel.TypeDefinition._
 import io.tvc.graphql.parsing.SchemaModel.{FieldDefinition, Schema, TypeDefinition}
 import io.tvc.graphql.recursion.Fix
@@ -141,11 +141,11 @@ object OutputInliner {
     * Perform the type checking, that is go through all the fields in the query,
     * find out what their type should be and inline that type into a TypeTree
     */
-  def run(schema: Schema, operationDefinition: OperationDefinition): OrMissing[RecTypeTree] =
+  def run(schema: Schema, selectionSet: SelectionSet): OrMissing[RecTypeTree] =
     for {
       root <- findTypeDefinition(schema, NamedType(Name("Query")))
       queryDef = FieldDefinition(None, Name("Query"), List.empty, NamedType(Name("Query")), List.empty)
       cursor = FieldCursor(schema, Vector.empty, CursorField(FieldName(None, "Query"), queryDef, root))
-      result <- createTree(cursor, operationDefinition.selectionSet)
+      result <- createTree(cursor, selectionSet)
     } yield result
 }
