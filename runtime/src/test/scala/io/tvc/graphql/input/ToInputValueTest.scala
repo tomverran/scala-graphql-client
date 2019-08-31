@@ -1,6 +1,7 @@
 package io.tvc.graphql.input
 
 import enumeratum._
+import higherkindness.droste.data.Fix
 import io.tvc.graphql.input.InputValue._
 import org.scalatest.{Matchers, WordSpec}
 
@@ -38,5 +39,20 @@ class ToInputValueTest extends WordSpec with Matchers {
       val exp = InputValue.obj("ships" -> list(enum("Caravel"), enum("Sloop")))
       ToInputValue.derive[Navy].to(Navy(List(Ship.Caravel, Ship.Sloop))) shouldBe exp
     }
+  }
+
+  "ToInputValue instances" should {
+
+    "Return NullInputValue for options" in {
+      ToInputValue[Option[String]].to(None) shouldBe Fix[InputValue](NullInputValue)
+      ToInputValue[Option[String]].to(Some("foo")) shouldBe string("foo")
+    }
+
+    "Work for scalar types" in {
+      ToInputValue[String].to("hi") shouldBe string("hi")
+      ToInputValue[Float].to(123.4f) shouldBe float(123.4f)
+      ToInputValue[Int].to(2) shouldBe integer(2)
+    }
+
   }
 }

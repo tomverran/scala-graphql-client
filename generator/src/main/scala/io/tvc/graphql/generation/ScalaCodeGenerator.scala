@@ -70,11 +70,11 @@ object ScalaCodeGenerator {
 
   private def scalar(s: Scalar): String =
     s.meta.name match {
-      case "String" | "Int" | "Boolean" | "Float" => ""
+      case "String" | "Int" | "Boolean" | "Float" | "ID" => ""
       case n => s"case class $n(value: String) extends AnyVal"
     }
 
-  private def scalaCode(field: FlatType): String =
+  private[generation] def scalaCode(field: FlatType): String =
     field match {
       case o: TypeTree.Object[Either[TypeRef, InputValue[TypeRef]]] => caseClass(o)
       case e: TypeTree.Enum => enum(e)
@@ -86,7 +86,7 @@ object ScalaCodeGenerator {
     s"""
        |package $namespace
        |import io.tvc.graphql.Runtime._
-       |import io.tvc.graphql.input.ToInputObject
+       |import io.tvc.graphql.input.ToInputValue
        |import io.circe.generic.JsonCodec
        |import enumeratum._
        |
@@ -98,15 +98,18 @@ object ScalaCodeGenerator {
 
 
   private[generation] def queryLine1(g: Query): String = {
-    val vars = g.inputs.fields.map(f => s"$$${f.name.value}:$${${f.`type`.value.name}.toInput.to(${f.name})}")
+    val vars: List[String] = g.inputs.fields.map { f =>
+      val typ: String = fieldType(f.`type`.value, f.modifiers)
+      s"$$$$${f.name.value}:$${ToInputValue[$typ].to(${f.name})}"
+    }
     s"${g.operation.toLowerCase} ${g.name}${vars.foldSmash("(", " ", ")")}"
   }
 
   private[generation] def queryFunction(q: Query): String = {
     val stringLines = queryLine1(q) :: q.selectionSets.lines.toList
-    val lines = stringLines.map(l => s"|$l").foldSmash("\"\"\"\n", "\n", "\n\"\"\"")
+    val lines = stringLines.map(l => s"|$l").foldSmash("s\"\"\"\n", "\n", "\n\"\"\"")
     val widenedFields = q.inputs.fields.map(_.map[Either[TypeRef, InputValue[TypeRef]]](Right(_)))
-    s"def ${q.name}${fields(widenedFields)}: String =\n${indent(lines)}.stripMargin"
+    s"def apply${fields(widenedFields)}: String =\n${indent(lines)}.stripMargin"
   }
 
   def generate(generatable: Generateable): String =

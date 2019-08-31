@@ -25,6 +25,7 @@ object InputValue {
   case class StringInputValue(value: String) extends InputValue[Nothing]
   case class IntegerInputValue(value: Int) extends InputValue[Nothing]
   case class FloatInputValue(value: Float) extends InputValue[Nothing]
+  case object NullInputValue extends InputValue[Nothing]
 
   case class ObjectField[A](name: String, value: A)
   case class ObjectInputValue[A](values: List[ObjectField[A]]) extends InputValue[A]
@@ -77,6 +78,7 @@ object InputValue {
     scheme.cata(
       Algebra[InputValue, String] {
         case EnumInputValue(v) => v
+        case NullInputValue => "null"
         case FloatInputValue(v) => v.toString
         case IntegerInputValue(v) => v.toString
         case BooleanInputValue(v) => v.toString
