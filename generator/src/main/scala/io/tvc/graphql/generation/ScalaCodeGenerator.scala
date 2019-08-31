@@ -6,12 +6,21 @@ import cats.instances.string._
 import cats.syntax.foldable._
 import cats.syntax.functor._
 import io.tvc.graphql.generation.TypeDeduplicator.{FlatType, TypeRef}
-import io.tvc.graphql.inlining.InputInliner.InputValue
+import io.tvc.graphql.inlining.InputInliner.{InputObject, InputValue}
 import io.tvc.graphql.inlining.TypeTree
 import io.tvc.graphql.inlining.TypeTree.TypeModifier.{ListType, NonNullType, NullableType}
 import io.tvc.graphql.inlining.TypeTree.{Scalar, TypeModifier}
 
 object ScalaCodeGenerator {
+
+  case class Generateable(
+    operation: String,
+    queryName: String,
+    namespace: String,
+    selectionSets: String,
+    types: List[FlatType],
+    variables: InputObject[TypeRef]
+  )
 
   private val indent: String = "  "
 
@@ -76,14 +85,23 @@ object ScalaCodeGenerator {
        |}
      """.stripMargin.trim
 
-  private def queryDefn(variables: TypeTree.Object[InputValue[TypeRef]]) =
-    s"def query${fields(variables.fields.map(_.map[Either[TypeRef, InputValue[TypeRef]]](Right(_))))}"
-
-  private def queryVal(variables: TypeTree.Object[InputValue[TypeRef]], query: String): String = {
-    val lines = query.dropWhile(_ != '{').lines.map(l => s"|$l").toList.foldSmash("\"\"\"\n", "\n", "\n\"\"\"")
-    s"${queryDefn(variables)}: String = \n${indent(lines)}.stripMargin"
+  private[generation] def query(
+    name: String,
+    variables: InputObject[TypeRef],
+    selectionSets: String
+  ): String = {
+    val lines = selectionSets.lines.map(l => s"|$l").toList.foldSmash("\"\"\"\n", "\n", "\n\"\"\"")
+    val widenedFields = variables.fields.map(_.map[Either[TypeRef, InputValue[TypeRef]]](Right(_)))
+    s"def $name${fields(widenedFields)}: String =\n${indent(lines)}.stripMargin"
   }
 
-  def generate(name: String, namespace: String, query: String, input: TypeDeduplicator.Output): String =
-    obj(name, namespace, (input.types.map(scalaCode).filter(_.nonEmpty).sorted :+ queryVal(input.variables, query)).mkString("\n\n"))
+  def generate(generatable: Generateable): String =
+    obj(
+      generatable.queryName,
+      generatable.namespace,
+      (
+        generatable.types.map(scalaCode).filter(_.nonEmpty).sorted :+
+        query(generatable.queryName, generatable.variables, generatable.selectionSets)
+      ).mkString("\n\n")
+    )
 }

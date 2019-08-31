@@ -1,4 +1,4 @@
-package io.tvc.graphql.recursion
+package io.tvc.graphql
 
 import cats.instances.either._
 import cats.syntax.flatMap._

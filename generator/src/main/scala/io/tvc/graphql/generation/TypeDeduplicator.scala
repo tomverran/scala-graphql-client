@@ -4,10 +4,10 @@ import cats.data.State
 import cats.syntax.functor._
 import cats.syntax.traverse._
 import cats.{Monad, Traverse, ~>}
+import io.tvc.graphql.Fix
 import io.tvc.graphql.inlining.InputInliner.{InputObject, InputTypeTree, InputValue, RecInputTypeTree}
 import io.tvc.graphql.inlining.TypeTree
 import io.tvc.graphql.inlining.TypeTree.{Enum, Metadata, Object, RecTypeTree, Scalar, Union}
-import io.tvc.graphql.recursion.Fix
 
 object TypeDeduplicator {
 

@@ -6,33 +6,6 @@ ThisBuild / scalacOptions ++= Seq(
 )
 
 /**
-  * The part of the project that parses schemas + queries
-  * and outputs scala code that depends on the runtime
-  */
-val generator = (project in file("generator"))
-  .settings(
-    name := "generator",
-    libraryDependencies ++= List(
-      "org.tpolecat" %% "atto-core" % "0.6.5",
-      "org.scalatest" %% "scalatest" % "3.0.8" % Test,
-      compilerPlugin("org.typelevel" %% "kind-projector" % "0.10.3")
-    )
-  )
-
-/**
-  * SBT plugin that lets you generate code at compile time
-  * from GraphQL queries and schemas included in your project
-  */
-val plugin = (project in file("plugin"))
-  .enablePlugins(SbtPlugin, BuildInfoPlugin)
-  .dependsOn(generator)
-  .settings(
-    name := "plugin",
-    buildInfoKeys := Seq[BuildInfoKey](version),
-    buildInfoPackage := "buildinfo"
-  )
-
-/**
   * Libraries and types that the generated code needs to work,
   * i.e. cats and circe as we need to specify how to decode results from JSON
   */
@@ -47,8 +20,40 @@ val runtime = (project in file("runtime"))
       "io.circe" %% "circe-generic" % circeVersion,
       "io.circe" %% "circe-parser" % circeVersion,
       "com.beachape" %% "enumeratum" % enumeratumVersion,
-      "com.beachape" %% "enumeratum-circe" % enumeratumCirceVersion
+      "com.beachape" %% "enumeratum-circe" % enumeratumCirceVersion,
+      compilerPlugin("org.typelevel" %% "kind-projector" % "0.10.3"),
+      "com.propensive" %% "magnolia" % "0.11.0",
+      "org.scalatest" %% "scalatest" % "3.0.8" % Test,
+      "org.scalacheck" %% "scalacheck" % "1.14.0" % Test,
+      "org.typelevel" %% "kittens" % "1.2.1"
     )
+  )
+
+/**
+  * The part of the project that parses schemas + queries
+  * and outputs scala code that depends on the runtime
+  */
+val generator = (project in file("generator"))
+  .dependsOn(runtime)
+  .settings(
+    name := "generator",
+    libraryDependencies ++= List(
+      "org.tpolecat" %% "atto-core" % "0.6.5",
+      "org.scalatest" %% "scalatest" % "3.0.8" % Test
+    )
+  )
+
+/**
+  * SBT plugin that lets you generate code at compile time
+  * from GraphQL queries and schemas included in your project
+  */
+val plugin = (project in file("plugin"))
+  .enablePlugins(SbtPlugin, BuildInfoPlugin)
+  .dependsOn(generator)
+  .settings(
+    name := "plugin",
+    buildInfoKeys := Seq[BuildInfoKey](version),
+    buildInfoPackage := "buildinfo"
   )
 
 val root = (project in file("."))

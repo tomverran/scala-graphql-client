@@ -2,8 +2,8 @@ package io.tvc.graphql.inlining
 
 import cats.instances.either._
 import cats.instances.list._
-import cats.instances.string._
 import cats.syntax.traverse._
+import io.tvc.graphql.Fix
 import io.tvc.graphql.inlining.TypeTree.{FieldName, Metadata, RecTypeTree}
 import io.tvc.graphql.inlining.Utilities.TypeError._
 import io.tvc.graphql.inlining.Utilities._
@@ -12,7 +12,6 @@ import io.tvc.graphql.parsing.CommonModel.Type.NamedType
 import io.tvc.graphql.parsing.QueryModel.{Field, SelectionSet}
 import io.tvc.graphql.parsing.SchemaModel.TypeDefinition._
 import io.tvc.graphql.parsing.SchemaModel.{FieldDefinition, Schema, TypeDefinition}
-import io.tvc.graphql.recursion.Fix
 
 /**
   * Here we take a query and a schema and produce a TypeTree AST.

@@ -1,11 +1,8 @@
 package io.tvc.graphql.inlining
 
-import cats.instances.list._
-import cats.syntax.foldable._
-import cats.syntax.functor._
-import cats.syntax.traverse._
-import cats.{Applicative, Eval, Traverse}
-import io.tvc.graphql.recursion.Fix
+import cats.Traverse
+import cats.derived.semi
+import io.tvc.graphql.Fix
 import io.tvc.graphql.inlining.TypeTree.Metadata
 
 import scala.language.higherKinds
@@ -35,14 +32,8 @@ object TypeTree {
     override def toString: String = (alias.toList :+ value).mkString(":")
   }
 
-  implicit val fieldTraverse: Traverse[Field] = new Traverse[Field] {
-    def traverse[G[_]: Applicative, A, B](fa: Field[A])(f: A => G[B]): G[Field[B]] =
-      f(fa.`type`).map(b => fa.copy(`type` = b))
-    def foldLeft[A, B](fa: Field[A], b: B)(f: (B, A) => B): B =
-      f(b, fa.`type`)
-    def foldRight[A, B](fa: Field[A], lb: Eval[B])(f: (A, Eval[B]) => Eval[B]): Eval[B] =
-      f(fa.`type`, lb)
-  }
+  implicit val fieldTraverse: Traverse[Field] =
+    semi.traverse[Field]
 
   /**
     * A modifier for a type,
@@ -68,43 +59,10 @@ object TypeTree {
   def obj(name: Metadata, fields: List[Field[RecTypeTree]]): RecTypeTree =
     Fix[TypeTree](Object(name, fields))
 
-  implicit val objTraverse: Traverse[Object] = new Traverse[Object] {
-    def traverse[G[_]: Applicative, A, B](fa: Object[A])(f: A => G[B]): G[Object[B]] =
-      fa.fields.traverse(fld => f(fld.`type`).map(r => fld.copy(`type` = r))).map(fs => fa.copy(fields = fs))
-    def foldLeft[A, B](fa: Object[A], b: B)(f: (B, A) => B): B =
-      fa.fields.foldLeft(b) { case (bb, fld) => f(bb, fld.`type`) }
-    def foldRight[A, B](fa: Object[A], lb: Eval[B])(f: (A, Eval[B]) => Eval[B]): Eval[B] =
-      fa.fields.foldr(lb) { case (fld, bb) => f(fld.`type`, bb) }
-  }
+  implicit val objTraverse: Traverse[Object] =
+    semi.traverse[Object]
 
-  /**
-    * This brutal traverse instance is used to be able to
-    * deal with the above recursive tree structure (i.e. nested in a Fix)
-    */
-  implicit val ttTraverse: Traverse[TypeTree] = new Traverse[TypeTree] {
-    def traverse[G[_], A, B](fa: TypeTree[A])(f: A => G[B])(implicit G: Applicative[G]): G[TypeTree[B]] =
-      fa match {
-        case e: Enum => G.pure(e)
-        case s: Scalar => G.pure(s)
-        case u: Union[A] => u.fields.traverse(f).map(fs => u.copy(fields = fs))
-        case o: Object[A] => o.traverse(f).widen
-      }
-
-    def foldLeft[A, B](fa: TypeTree[A], b: B)(f: (B, A) => B): B =
-      fa match {
-        case _: Enum => b
-        case _: Scalar => b
-        case u: Union[A] => u.fields.foldLeft(b)(f)
-        case o: Object[A] => o.foldLeft(b)(f)
-      }
-
-    def foldRight[A, B](fa: TypeTree[A], lb: Eval[B])(f: (A, Eval[B]) => Eval[B]): Eval[B] =
-      fa match {
-        case _: Enum => lb
-        case _: Scalar => lb
-        case u: Union[A] => u.fields.foldr(lb)(f)
-        case o: Object[A] => o.foldRight(lb)(f)
-      }
-  }
+  implicit val ttTraverse: Traverse[TypeTree] =
+    semi.traverse[TypeTree]
 }
 

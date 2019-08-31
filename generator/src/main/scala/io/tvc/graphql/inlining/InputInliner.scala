@@ -1,19 +1,19 @@
 package io.tvc.graphql.inlining
 
+import cats.Traverse
+import cats.derived.semi
 import cats.instances.either._
 import cats.instances.list._
 import cats.syntax.either._
-import cats.syntax.functor._
 import cats.syntax.traverse._
-import cats.{Applicative, Eval, Traverse}
-import io.tvc.graphql.parsing.QueryModel.{OperationDefinition, VariableDefinition}
+import io.tvc.graphql.Fix
+import io.tvc.graphql.Fix.unfoldF
+import io.tvc.graphql.inlining.TypeTree.{Field, FieldName, Metadata, Object}
+import io.tvc.graphql.inlining.Utilities.TypeError.OrMissing
+import io.tvc.graphql.inlining.Utilities._
+import io.tvc.graphql.parsing.QueryModel.VariableDefinition
 import io.tvc.graphql.parsing.SchemaModel.TypeDefinition.InputObjectTypeDefinition
 import io.tvc.graphql.parsing.SchemaModel.{InputValueDefinition, Schema, TypeDefinition}
-import io.tvc.graphql.recursion.Fix
-import io.tvc.graphql.recursion.Fix.unfoldF
-import io.tvc.graphql.inlining.Utilities._
-import io.tvc.graphql.inlining.Utilities.TypeError.OrMissing
-import io.tvc.graphql.inlining.TypeTree.{Field, FieldName, Metadata, Object}
 
 import scala.language.higherKinds
 
@@ -32,14 +32,7 @@ object InputInliner {
   object InputValue {
 
     implicit val traverse: Traverse[InputValue] =
-      new Traverse[InputValue] {
-        def traverse[G[_]: Applicative, A, B](fa: InputValue[A])(f: A => G[B]): G[InputValue[B]] =
-          f(fa.value).map(b => fa.copy(value = b))
-        def foldLeft[A, B](fa: InputValue[A], b: B)(f: (B, A) => B): B =
-          f(b, fa.value)
-        def foldRight[A, B](fa: InputValue[A], lb: Eval[B])(f: (A, Eval[B]) => Eval[B]): Eval[B] =
-          f(fa.value, lb)
-      }
+      semi.traverse[InputValue]
   }
 
   type InputObject[A] = TypeTree.Object[InputValue[A]]

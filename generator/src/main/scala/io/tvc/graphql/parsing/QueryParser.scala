@@ -2,7 +2,7 @@ package io.tvc.graphql.parsing
 
 import atto.Parser
 import atto.parser.character.char
-import atto.parser.combinator.{err, many, ok, opt}
+import atto.parser.combinator.{get, err, many, ok, opt}
 import atto.syntax.parser._
 import cats.syntax.apply._
 import io.tvc.graphql.parsing.Combinators._
@@ -12,6 +12,15 @@ import io.tvc.graphql.parsing.QueryModel.OperationType.Query
 import io.tvc.graphql.parsing.QueryModel._
 
 object QueryParser {
+
+  /**
+    * We need to keep all the selection sets as a string
+    * to later output them when generating code
+    */
+  case class ParsedQuery(
+    operation: OperationDefinition,
+    stringValue: String
+  )
 
   private val operationType: Parser[OperationType] =
     name.flatMap {
@@ -32,14 +41,20 @@ object QueryParser {
   private val selectionSet: Parser[SelectionSet] =
     recCurlyBrackets(many(ws(field))).map(SelectionSet.apply)
 
-  private val operationDefinition: Parser[OperationDefinition] =
+  private val operationDefinition: Parser[ParsedQuery] =
     (
       opt(operationType).map(_.getOrElse(Query)),
       ws(opt(name)),
       optRecParens(many(variableDefinition)).map(_.flatten),
+      get,
       selectionSet
-    ).mapN(OperationDefinition.apply)
+    ).mapN { case (opt, na, vars, remaining, selection) =>
+      ParsedQuery(
+        OperationDefinition(opt, na, vars, selection),
+        stringValue = remaining
+      )
+    }
 
-  def parse(string: String): Either[String, OperationDefinition] =
+  def parse(string: String): Either[String, ParsedQuery] =
     operationDefinition.parseOnly(string).either
 }
