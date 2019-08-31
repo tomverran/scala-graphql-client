@@ -3,7 +3,7 @@ package io.tvc.graphql.inlining
 import cats.instances.either._
 import cats.instances.list._
 import cats.syntax.traverse._
-import io.tvc.graphql.Fix
+import higherkindness.droste.data.Fix
 import io.tvc.graphql.inlining.TypeTree.{FieldName, Metadata, RecTypeTree}
 import io.tvc.graphql.inlining.Utilities.TypeError._
 import io.tvc.graphql.inlining.Utilities._

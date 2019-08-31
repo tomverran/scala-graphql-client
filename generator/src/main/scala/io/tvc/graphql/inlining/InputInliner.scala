@@ -6,8 +6,8 @@ import cats.instances.either._
 import cats.instances.list._
 import cats.syntax.either._
 import cats.syntax.traverse._
-import io.tvc.graphql.Fix
-import io.tvc.graphql.Fix.unfoldF
+import higherkindness.droste.data.Fix
+import higherkindness.droste.{CoalgebraM, scheme}
 import io.tvc.graphql.inlining.TypeTree.{Field, FieldName, Metadata, Object}
 import io.tvc.graphql.inlining.Utilities.TypeError.OrMissing
 import io.tvc.graphql.inlining.Utilities._
@@ -82,13 +82,17 @@ object InputInliner {
     OutputInliner.createScalar(td)
 
   /**
-    * Run the inlining process on the given query, taking all of it's arguments
+    * Run the inlining process on the given query, taking all of its arguments
     * and thus producing a recursive list of input types the user must submit to the server
     */
   def run(schema: Schema, query: List[VariableDefinition]): OrMissing[InputObject[RecInputTypeTree]] =
     query.traverse { v =>
       findTypeDefinition(schema, v.`type`).flatMap { td =>
-        unfoldF(td)(t => simple(t).orElse(complex(schema, t))).map { tree =>
+        scheme.anaM(
+          CoalgebraM[OrMissing, InputTypeTree, TypeDefinition] {
+            t => simple(t).orElse(complex(schema, t))
+          }
+        ).apply(td).map { tree =>
           Field(
             FieldName(None, v.variable.value),
             InputValue(default = v.default.map(_.toString), value = tree),

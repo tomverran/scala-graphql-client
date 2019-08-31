@@ -1,10 +1,6 @@
 ThisBuild / scalaVersion := "2.12.8"
 ThisBuild / organization := "io.tvc"
 
-ThisBuild / scalacOptions ++= Seq(
-  "-unchecked", "-deprecation", "-encoding", "utf8", "-feature", "-Xfatal-warnings", "-Ypartial-unification"
-)
-
 /**
   * Libraries and types that the generated code needs to work,
   * i.e. cats and circe as we need to specify how to decode results from JSON
@@ -25,7 +21,8 @@ val runtime = (project in file("runtime"))
       "com.propensive" %% "magnolia" % "0.11.0",
       "org.scalatest" %% "scalatest" % "3.0.8" % Test,
       "org.scalacheck" %% "scalacheck" % "1.14.0" % Test,
-      "org.typelevel" %% "kittens" % "1.2.1"
+      "org.typelevel" %% "kittens" % "1.2.1",
+      "io.higherkindness" %% "droste-core" % "0.7.0"
     )
   )
 

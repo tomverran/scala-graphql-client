@@ -1,6 +1,6 @@
 package io.tvc.graphql.inlining
 
-import io.tvc.graphql.Fix
+import higherkindness.droste.data.Fix
 import io.tvc.graphql.inlining.InputInliner.{InputObject, InputTypeTree, InputValue, RecInputTypeTree}
 import io.tvc.graphql.inlining.TypeTree.TypeModifier.NullableType
 import io.tvc.graphql.inlining.TypeTree.{Field, FieldName, Metadata}

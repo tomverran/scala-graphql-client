@@ -2,7 +2,7 @@ package io.tvc.graphql.inlining
 
 import cats.Traverse
 import cats.derived.semi
-import io.tvc.graphql.Fix
+import higherkindness.droste.data.Fix
 import io.tvc.graphql.inlining.TypeTree.Metadata
 
 import scala.language.higherKinds

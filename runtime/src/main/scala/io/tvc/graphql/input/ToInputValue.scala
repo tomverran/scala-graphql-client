@@ -1,7 +1,7 @@
 package io.tvc.graphql.input
 
 import enumeratum.EnumEntry
-import io.tvc.graphql.Fix
+import higherkindness.droste.data.Fix
 import io.tvc.graphql.input.InputValue._
 import magnolia._
 
@@ -31,8 +31,7 @@ object ToInputValue {
     (v: T) =>
       Fix(
         InputValue.ObjectInputValue[RecInputValue](
-          values = ctx.parameters.map(p => ObjectField(p.label, p.typeclass.to(p.dereference(v)))).toList,
-          name = ctx.typeName.short
+          ctx.parameters.map(p => ObjectField(p.label, p.typeclass.to(p.dereference(v)))).toList
         )
       )
 

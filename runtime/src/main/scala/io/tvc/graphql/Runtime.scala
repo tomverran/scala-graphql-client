@@ -1,6 +1,5 @@
 package io.tvc.graphql
 
-import cats.syntax.functor._
 import enumeratum._
 
 /**

@@ -24,18 +24,18 @@ class ToInputValueTest extends WordSpec with Matchers {
   "ToInputValue derivation" should {
 
     "Work for an empty case class" in {
-      val expected = InputValue.obj("Empty")
+      val expected = InputValue.obj()
       ToInputValue.derive[Empty].to(Empty()) shouldBe expected
     }
 
     "Work for a case class of strings" in {
-      val expected = InputValue.obj("Stringy", "first" -> string("foo"), "second" -> string("bar"))
+      val expected = InputValue.obj("first" -> string("foo"), "second" -> string("bar"))
       ToInputValue.derive[Stringy].to(Stringy("foo", "bar")) shouldBe expected
     }
 
 
     "Work for a case class containing an Enumeratum enum" in {
-      val exp = InputValue.obj("Navy", "ships" -> list(enum("Caravel"), enum("Sloop")))
+      val exp = InputValue.obj("ships" -> list(enum("Caravel"), enum("Sloop")))
       ToInputValue.derive[Navy].to(Navy(List(Ship.Caravel, Ship.Sloop))) shouldBe exp
     }
   }

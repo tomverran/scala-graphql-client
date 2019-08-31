@@ -3,7 +3,9 @@ package io.tvc.graphql.input
 import cats.Traverse
 import cats.derived.semi
 import cats.syntax.functor._
-import io.tvc.graphql.Fix
+import higherkindness.droste.Algebra
+import higherkindness.droste.data.Fix
+import higherkindness.droste._
 
 import scala.language.higherKinds
 
@@ -21,9 +23,11 @@ object InputValue {
   case class EnumInputValue(value: String) extends InputValue[Nothing]
   case class BooleanInputValue(value: Boolean) extends InputValue[Nothing]
   case class StringInputValue(value: String) extends InputValue[Nothing]
+  case class IntegerInputValue(value: Int) extends InputValue[Nothing]
+  case class FloatInputValue(value: Float) extends InputValue[Nothing]
 
   case class ObjectField[A](name: String, value: A)
-  case class ObjectInputValue[A](name: String, values: List[ObjectField[A]]) extends InputValue[A]
+  case class ObjectInputValue[A](values: List[ObjectField[A]]) extends InputValue[A]
   case class ListInputValue[A](values: List[A]) extends InputValue[A]
 
   implicit val fieldTraverse: Traverse[ObjectField] =
@@ -32,8 +36,8 @@ object InputValue {
   implicit val inputValueTraverse: Traverse[InputValue] =
     semi.traverse[InputValue]
 
-  def obj(name: String, fields: (String, RecInputValue)*): RecInputValue =
-    Fix[InputValue](ObjectInputValue(name, fields.map { case (n, v) => ObjectField(n, v) }.toList))
+  def obj(fields: (String, RecInputValue)*): RecInputValue =
+    Fix[InputValue](ObjectInputValue(fields.map { case (n, v) => ObjectField(n, v) }.toList))
 
   def string(str: String): RecInputValue =
     Fix[InputValue](StringInputValue(str))
@@ -43,6 +47,12 @@ object InputValue {
 
   def boolean(bool: Boolean): RecInputValue =
     Fix[InputValue](BooleanInputValue(bool))
+
+  def integer(int: Int): RecInputValue =
+    Fix[InputValue](IntegerInputValue(int))
+
+  def float(float: Float): RecInputValue =
+    Fix[InputValue](FloatInputValue(float))
 
   def enum(value: String): RecInputValue =
     Fix[InputValue](EnumInputValue(value))
@@ -60,15 +70,19 @@ object InputValue {
     str.toCharArray.map {
       case '"' => "\\\""
       case SourceText(c) => c
-      case e => s"\\u${e.formatted("%04x")}"
+      case e => e.toInt.formatted("\\u%04x")
     }.mkString
 
-  def serialise(a: RecInputValue): String =
-    Fix.fold[InputValue, String](a) {
-      case EnumInputValue(v) => v
-      case BooleanInputValue(v) => v.toString
-      case StringInputValue(v) => s""""${escape(v)}""""
-      case ListInputValue(vs) => s"[${vs.mkString(",")}]"
-      case ObjectInputValue(_, vs) => s"{ ${vs.map(v => s"${v.name}: ${v.value}").mkString(", ")}"
-    }
+  def serialise(iv: RecInputValue): String =
+    scheme.cata(
+      Algebra[InputValue, String] {
+        case EnumInputValue(v) => v
+        case FloatInputValue(v) => v.toString
+        case IntegerInputValue(v) => v.toString
+        case BooleanInputValue(v) => v.toString
+        case StringInputValue(v) => s""""${escape(v)}""""
+        case ListInputValue(vs) => s"[${vs.mkString(" ")}]"
+        case ObjectInputValue(vs) => s"{${vs.map(v => s"${v.name}:${v.value}").mkString(" ")}}"
+      }
+    ).apply(iv)
 }

@@ -4,7 +4,7 @@ import cats.data.State
 import cats.syntax.functor._
 import cats.syntax.traverse._
 import cats.{Monad, Traverse, ~>}
-import io.tvc.graphql.Fix
+import higherkindness.droste._
 import io.tvc.graphql.inlining.InputInliner.{InputObject, InputTypeTree, InputValue, RecInputTypeTree}
 import io.tvc.graphql.inlining.TypeTree
 import io.tvc.graphql.inlining.TypeTree.{Enum, Metadata, Object, RecTypeTree, Scalar, Union}
@@ -59,6 +59,13 @@ object TypeDeduplicator {
   def toFlat(i: InputTypeTree[TypeRef]): FlatType =
     (i: TypeTree[InputValue[TypeRef]]).map(Right(_))
 
+
+  private val registerInput: AlgebraM[TypeState, InputTypeTree, TypeRef] =
+    AlgebraM(l => register(toFlat(l)))
+
+  private val registerOutput: AlgebraM[TypeState, TypeTree, TypeRef] =
+    AlgebraM(l => register(l.map(Left(_))))
+
   /**
     * Turn a recursive tree of types into a flat list of types
     * with any duplicate types being renamed to avoid clashes
@@ -66,8 +73,8 @@ object TypeDeduplicator {
   def deduplicate(variables: InputObject[RecInputTypeTree], output: RecTypeTree): Output =
     (
       for {
-        _ <- Fix.foldF[TypeTree, TypeState, TypeRef](output)(l => register(l.map(Left(_))))
-        input <- variables.traverse(Fix.foldF[InputTypeTree, TypeState, TypeRef](_)(l => register(toFlat(l))))
+        _ <- scheme.cataM(registerOutput).apply(output)
+        input <- variables.traverse(scheme.cataM(registerInput).apply)
         values <- State.get
       } yield Output(values.values.toList, input)
     ).runA(Map.empty).value
