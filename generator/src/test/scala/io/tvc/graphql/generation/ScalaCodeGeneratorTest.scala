@@ -1,6 +1,6 @@
 package io.tvc.graphql.generation
 
-import io.tvc.graphql.generation.ScalaCodeGenerator.query
+import io.tvc.graphql.generation.ScalaCodeGenerator._
 import io.tvc.graphql.generation.TypeDeduplicator.TypeRef
 import io.tvc.graphql.inlining.InputInliner.InputValue
 import io.tvc.graphql.inlining.TypeTree
@@ -14,11 +14,27 @@ class ScalaCodeGeneratorTest extends WordSpec with Matchers {
 
   "Scala code generator" should {
 
+    "Produce correct looking case classes" in {
+      val fieldTypeRef: Either[TypeRef, InputValue[TypeRef]] = Left(TypeRef("Baz"))
+      val field = Field(FieldName(None, "foo"), fieldTypeRef, List(NonNullType))
+      val obj = TypeTree.Object(Metadata(None, "Inputs"), List(field))
+      caseClass(obj) shouldBe
+        """
+          |@JsonCodec
+          |case class Inputs(foo: Baz)
+          |
+          |object Inputs {
+          |  implicit val toInput: ToInputValue[Inputs] = ToInputValue.derive
+          |}
+        """.trim.stripMargin
+    }
+
     "Produce correct query signatures given no variables" in {
-      val result = query("Foo", TypeTree.Object(Metadata(None, "Inputs"), List.empty), "{}")
-      result shouldBe s"""
+      val qry = Query("Foo", "Query", "{}", TypeTree.Object(Metadata(None, "Inputs"), List.empty))
+      queryFunction(qry) shouldBe s"""
         |def Foo(): String =
         |  $quotes
+        |  |query Foo()
         |  |{}
         |  $quotes.stripMargin""".stripMargin.trim
     }
@@ -26,10 +42,11 @@ class ScalaCodeGeneratorTest extends WordSpec with Matchers {
     "Produce correct query signatures given a variable" in {
 
       val va = Field(FieldName(None, "foo"), InputValue(default = None, TypeRef("Baz")), List(NonNullType))
-      val result = query("Foo", TypeTree.Object(Metadata(None, "Inputs"), List(va)), "{}")
-      result shouldBe s"""
+      val qry = Query("Foo", "Query", "{}", TypeTree.Object(Metadata(None, "Inputs"), List(va)))
+      queryFunction(qry) shouldBe s"""
         |def Foo(foo: Baz): String =
         |  $quotes
+        |  |query Foo($$foo:$${Baz.toInput.to(foo)})
         |  |{}
         |  $quotes.stripMargin""".stripMargin.trim
     }

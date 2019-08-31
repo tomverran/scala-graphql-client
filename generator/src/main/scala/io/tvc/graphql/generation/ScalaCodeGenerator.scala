@@ -13,13 +13,17 @@ import io.tvc.graphql.inlining.TypeTree.{Scalar, TypeModifier}
 
 object ScalaCodeGenerator {
 
-  case class Generateable(
+  case class Query(
+    name: String,
     operation: String,
-    queryName: String,
-    namespace: String,
     selectionSets: String,
+    inputs: InputObject[TypeRef]
+  )
+
+  case class Generateable(
+    namespace: String,
     types: List[FlatType],
-    variables: InputObject[TypeRef]
+    query: Query
   )
 
   private val indent: String = "  "
@@ -46,8 +50,14 @@ object ScalaCodeGenerator {
   private def fields(fs: List[TypeTree.Field[Either[TypeRef, InputValue[TypeRef]]]]): String =
     argList(fs.map(f => s"${f.name.alias.getOrElse(f.name.value)}: ${fieldType(f.`type`.map(_.value).merge, f.modifiers)}"))
 
-  private def caseClass(qr: TypeTree.Object[Either[TypeRef, InputValue[TypeRef]]]): String =
-    s"${qr.meta.comment.foldMap(blockComment)}@JsonCodec\ncase class ${qr.meta.name}${fields(qr.fields)}"
+  private[generation] def caseClass(qr: TypeTree.Object[Either[TypeRef, InputValue[TypeRef]]]): String =
+    s"${qr.meta.comment.foldMap(blockComment)}@JsonCodec\ncase class ${qr.meta.name}${fields(qr.fields)}" +
+    s"\n\n${companionObj(qr)}"
+
+  private def companionObj(qr: TypeTree.Object[Either[TypeRef, InputValue[TypeRef]]]): String = {
+    val toVal = List(s"implicit val toInput: ToInputValue[${qr.meta.name}] = ToInputValue.derive")
+    s"object ${qr.meta.name} ${curlyBlock(toVal)}"
+  }
 
   private def enumObj(qr: TypeTree.Enum): String = {
     val values = qr.fields.map(f => s"case object $f extends ${qr.meta.name}")
@@ -76,6 +86,7 @@ object ScalaCodeGenerator {
     s"""
        |package $namespace
        |import io.tvc.graphql.Runtime._
+       |import io.tvc.graphql.input.ToInputObject
        |import io.circe.generic.JsonCodec
        |import enumeratum._
        |
@@ -85,23 +96,26 @@ object ScalaCodeGenerator {
        |}
      """.stripMargin.trim
 
-  private[generation] def query(
-    name: String,
-    variables: InputObject[TypeRef],
-    selectionSets: String
-  ): String = {
-    val lines = selectionSets.lines.map(l => s"|$l").toList.foldSmash("\"\"\"\n", "\n", "\n\"\"\"")
-    val widenedFields = variables.fields.map(_.map[Either[TypeRef, InputValue[TypeRef]]](Right(_)))
-    s"def $name${fields(widenedFields)}: String =\n${indent(lines)}.stripMargin"
+
+  private[generation] def queryLine1(g: Query): String = {
+    val vars = g.inputs.fields.map(f => s"$$${f.name.value}:$${${f.`type`.value.name}.toInput.to(${f.name})}")
+    s"${g.operation.toLowerCase} ${g.name}${vars.foldSmash("(", " ", ")")}"
+  }
+
+  private[generation] def queryFunction(q: Query): String = {
+    val stringLines = queryLine1(q) :: q.selectionSets.lines.toList
+    val lines = stringLines.map(l => s"|$l").foldSmash("\"\"\"\n", "\n", "\n\"\"\"")
+    val widenedFields = q.inputs.fields.map(_.map[Either[TypeRef, InputValue[TypeRef]]](Right(_)))
+    s"def ${q.name}${fields(widenedFields)}: String =\n${indent(lines)}.stripMargin"
   }
 
   def generate(generatable: Generateable): String =
     obj(
-      generatable.queryName,
+      generatable.query.name,
       generatable.namespace,
       (
         generatable.types.map(scalaCode).filter(_.nonEmpty).sorted :+
-        query(generatable.queryName, generatable.variables, generatable.selectionSets)
+        queryFunction(generatable.query)
       ).mkString("\n\n")
     )
 }
