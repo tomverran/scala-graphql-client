@@ -5,15 +5,24 @@ import cats.syntax.functor._
 import cats.syntax.traverse._
 import cats.{Monad, Traverse, ~>}
 import higherkindness.droste._
-import io.tvc.graphql.inlining.InputInliner.{InputObject, InputTypeTree, InputValue, RecInputTypeTree}
+import io.tvc.graphql.inlining.InputInliner._
 import io.tvc.graphql.inlining.TypeTree
-import io.tvc.graphql.inlining.TypeTree.{Enum, Metadata, Object, RecTypeTree, Scalar, Union}
+import io.tvc.graphql.inlining.TypeTree._
+import cats.instances.option._
+import higherkindness.droste.data.Fix
 
 object TypeDeduplicator {
 
+  private val rootName: TypeRef =
+    TypeRef("Output")
+
+  private def renameRoot[A](o: Object[A]): Object[A] =
+    o.copy(meta = o.meta.copy(name = rootName.name))
+
   case class Output(
+    root: TypeRef,
     types: List[FlatType],
-    variables: Object[InputValue[TypeRef]]
+    variables: Option[Object[InputValue[TypeRef]]]
   )
 
   case class TypeRef(name: String)
@@ -68,14 +77,15 @@ object TypeDeduplicator {
 
   /**
     * Turn a recursive tree of types into a flat list of types
-    * with any duplicate types being renamed to avoid clashes
+    * with any duplicate types being renamed to avoid clashes.
+    * This is also responsible for renaming the root type
     */
-  def deduplicate(variables: InputObject[RecInputTypeTree], output: RecTypeTree): Output =
+  def deduplicate(variables: Option[InputObject[RecInputTypeTree]], output: Object[RecTypeTree]): Output =
     (
       for {
-        _ <- scheme.cataM(registerOutput).apply(output)
-        input <- variables.traverse(scheme.cataM(registerInput).apply)
+        _ <- scheme.cataM(registerOutput).apply(Fix[TypeTree](renameRoot(output)))
+        input <- variables.traverse(_.traverse(scheme.cataM(registerInput).apply))
         values <- State.get
-      } yield Output(values.values.toList, input)
+      } yield Output(rootName, values.values.toList, input)
     ).runA(Map.empty).value
 }

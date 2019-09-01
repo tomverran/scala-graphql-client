@@ -16,8 +16,8 @@ import io.tvc.graphql.parsing.SchemaModel.Schema
 object Inliner {
 
   case class InlinedQuery(
-    inputs: InputObject[RecInputTypeTree],
-    output: RecTypeTree
+    inputs: Option[InputObject[RecInputTypeTree]],
+    output: TypeTree.Object[RecTypeTree]
   )
 
   def apply(schema: Schema, operationDefinition: OperationDefinition): OrMissing[InlinedQuery] =

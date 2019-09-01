@@ -85,7 +85,7 @@ object InputInliner {
     * Run the inlining process on the given query, taking all of its arguments
     * and thus producing a recursive list of input types the user must submit to the server
     */
-  def run(schema: Schema, query: List[VariableDefinition]): OrMissing[InputObject[RecInputTypeTree]] =
+  def run(schema: Schema, query: List[VariableDefinition]): OrMissing[Option[InputObject[RecInputTypeTree]]] =
     query.traverse { v =>
       findTypeDefinition(schema, v.`type`).flatMap { td =>
         scheme.anaM(
@@ -101,6 +101,8 @@ object InputInliner {
         }
       }
     }.map { fields =>
-      Object(meta = Metadata(comment = None, name = "Inputs"), fields = fields)
+      if (fields.isEmpty) None else Some(
+        Object(meta = Metadata(comment = None, name = "Variables"), fields = fields)
+      )
     }
 }

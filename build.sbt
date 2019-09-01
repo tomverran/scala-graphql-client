@@ -17,12 +17,9 @@ val runtime = (project in file("runtime"))
       "io.circe" %% "circe-parser" % circeVersion,
       "com.beachape" %% "enumeratum" % enumeratumVersion,
       "com.beachape" %% "enumeratum-circe" % enumeratumCirceVersion,
-      compilerPlugin("org.typelevel" %% "kind-projector" % "0.10.3"),
-      "com.propensive" %% "magnolia" % "0.11.0",
+      compilerPlugin("org.scalamacros" % "paradise" % "2.1.0" cross CrossVersion.full),
       "org.scalatest" %% "scalatest" % "3.0.8" % Test,
       "org.scalacheck" %% "scalacheck" % "1.14.0" % Test,
-      "org.typelevel" %% "kittens" % "1.2.1",
-      "io.higherkindness" %% "droste-core" % "0.7.0"
     )
   )
 
@@ -31,12 +28,14 @@ val runtime = (project in file("runtime"))
   * and outputs scala code that depends on the runtime
   */
 val generator = (project in file("generator"))
-  .dependsOn(runtime)
   .settings(
     name := "generator",
     libraryDependencies ++= List(
+      "org.typelevel" %% "kittens" % "1.2.1",
       "org.tpolecat" %% "atto-core" % "0.6.5",
-      "org.scalatest" %% "scalatest" % "3.0.8" % Test
+      "io.higherkindness" %% "droste-core" % "0.7.0",
+      "org.scalatest" %% "scalatest" % "3.0.8" % Test,
+      compilerPlugin("org.typelevel" %% "kind-projector" % "0.10.3")
     )
   )
 

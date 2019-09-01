@@ -15,13 +15,13 @@ object ScalaCodeGenerator {
 
   case class Query(
     name: String,
-    operation: String,
-    selectionSets: String,
-    inputs: InputObject[TypeRef]
+    stringValue: String,
+    inputs: Option[InputObject[TypeRef]]
   )
 
-  case class Generateable(
+  case class GenerationInput(
     namespace: String,
+    rootName: TypeRef,
     types: List[FlatType],
     query: Query
   )
@@ -34,13 +34,19 @@ object ScalaCodeGenerator {
   private def blockComment(s: String): String =
     s.lines.toList.filter(_.nonEmpty).map(l => s"$indent* $l").foldSmash("/**\n", "\n", s"\n$indent*/\n")
 
-  private def argList(as: List[String]): String =
-    if (as.length < 3) as.foldSmash("(", ", ", ")") else as.foldSmash(s"(\n$indent", s",\n$indent", "\n)")
+  private def argList(as: List[String], forceVertical: Boolean = false): String =
+    if (as.isEmpty) {
+      ""
+    } else if (as.length >= 3 || forceVertical) {
+      as.foldSmash(s"(\n$indent", s",\n$indent", "\n)")
+    } else {
+      as.foldSmash("(", ", ", ")")
+    }
 
   private def curlyBlock(what: List[String]): String =
     what.foldSmash(s"{\n$indent", s"\n$indent", "\n}")
 
-  private def fieldType(tpe: TypeRef, mods: List[TypeModifier]): String =
+  private def scalaType(tpe: TypeRef, mods: List[TypeModifier]): String =
     mods.foldLeft(tpe.name) {
       case (n, NonNullType) => n
       case (n, ListType) => s"List[$n]"
@@ -48,16 +54,10 @@ object ScalaCodeGenerator {
     }
 
   private def fields(fs: List[TypeTree.Field[Either[TypeRef, InputValue[TypeRef]]]]): String =
-    argList(fs.map(f => s"${f.name.alias.getOrElse(f.name.value)}: ${fieldType(f.`type`.map(_.value).merge, f.modifiers)}"))
+    argList(fs.map(f => s"${f.name.alias.getOrElse(f.name.value)}: ${scalaType(f.`type`.map(_.value).merge, f.modifiers)}"))
 
   private[generation] def caseClass(qr: TypeTree.Object[Either[TypeRef, InputValue[TypeRef]]]): String =
-    s"${qr.meta.comment.foldMap(blockComment)}@JsonCodec\ncase class ${qr.meta.name}${fields(qr.fields)}" +
-    s"\n\n${companionObj(qr)}"
-
-  private def companionObj(qr: TypeTree.Object[Either[TypeRef, InputValue[TypeRef]]]): String = {
-    val toVal = List(s"implicit val toInput: ToInputValue[${qr.meta.name}] = ToInputValue.derive")
-    s"object ${qr.meta.name} ${curlyBlock(toVal)}"
-  }
+    s"${qr.meta.comment.foldMap(blockComment)}@JsonCodec\ncase class ${qr.meta.name}${fields(qr.fields)}"
 
   private def enumObj(qr: TypeTree.Enum): String = {
     val values = qr.fields.map(f => s"case object $f extends ${qr.meta.name}")
@@ -85,9 +85,11 @@ object ScalaCodeGenerator {
   private def obj(name: String, namespace: String, contents: String): String =
     s"""
        |package $namespace
-       |import io.tvc.graphql.Runtime._
-       |import io.tvc.graphql.input.ToInputValue
+       |import io.tvc.graphql.Builtin._
+       |import io.tvc.graphql.Request
+       |import io.tvc.graphql.Response
        |import io.circe.generic.JsonCodec
+       |import io.circe.syntax._
        |import enumeratum._
        |
        |object $name {
@@ -96,29 +98,38 @@ object ScalaCodeGenerator {
        |}
      """.stripMargin.trim
 
+  private def queryArguments(q: Query): String =
+    q.inputs.fold("")(f => argList(f.fields.map(f => s"${f.name.value}: ${f.`type`.value.name}")))
 
-  private[generation] def queryLine1(g: Query): String = {
-    val vars: List[String] = g.inputs.fields.map { f =>
-      val typ: String = fieldType(f.`type`.value, f.modifiers)
-      s"$$$$${f.name.value}:$${ToInputValue[$typ].to(${f.name})}"
-    }
-    s"${g.operation.toLowerCase} ${g.name}${vars.foldSmash("(", " ", ")")}"
+  private def queryVariables(q: InputObject[TypeRef]): String =
+    s"${q.meta.name}${argList(q.fields.map(_.name.value))}.asJson"
+
+  private def queryBlockString(q: Query): String =
+    q.stringValue.lines.map(l => s"|$l").toList.foldSmash(
+      prefix = "\"\"\"\n",
+      delim = "\n",
+      suffix = "\n\"\"\".trim.stripMargin"
+    )
+
+  private[generation] def queryFunction(q: Query, rootName: TypeRef): String = {
+    val variables = q.inputs.toList.map(q => s"variables = ${queryVariables(q)}")
+    val args = List(s"query = ${indent(queryBlockString(q)).trim}") ++ variables
+    val request = s"Request[Response[${rootName.name}]]${argList(args, forceVertical = true)}"
+    s"def apply${queryArguments(q)}: Request[Response[${rootName.name}]] =\n${indent(request)}"
   }
 
-  private[generation] def queryFunction(q: Query): String = {
-    val stringLines = queryLine1(q) :: q.selectionSets.lines.toList
-    val lines = stringLines.map(l => s"|$l").foldSmash("s\"\"\"\n", "\n", "\n\"\"\"")
-    val widenedFields = q.inputs.fields.map(_.map[Either[TypeRef, InputValue[TypeRef]]](Right(_)))
-    s"def apply${fields(widenedFields)}: String =\n${indent(lines)}.stripMargin"
-  }
+  private def toFlat(l: InputObject[TypeRef]): FlatType =
+    (l: TypeTree.Object[InputValue[TypeRef]]).map(Right(_))
 
-  def generate(generatable: Generateable): String =
+  def generate(input: GenerationInput): String =
     obj(
-      generatable.query.name,
-      generatable.namespace,
+      input.query.name,
+      input.namespace,
       (
-        generatable.types.map(scalaCode).filter(_.nonEmpty).sorted :+
-        queryFunction(generatable.query)
+        (
+          input.query.inputs.map(toFlat).toList ++ input.types
+        ).map(scalaCode).filter(_.nonEmpty).sorted :+
+        queryFunction(input.query, input.rootName)
       ).mkString("\n\n")
     )
 }

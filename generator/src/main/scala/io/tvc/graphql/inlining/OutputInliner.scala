@@ -4,7 +4,7 @@ import cats.instances.either._
 import cats.instances.list._
 import cats.syntax.traverse._
 import higherkindness.droste.data.Fix
-import io.tvc.graphql.inlining.TypeTree.{FieldName, Metadata, RecTypeTree}
+import io.tvc.graphql.inlining.TypeTree.{FieldName, Metadata, Object, RecTypeTree}
 import io.tvc.graphql.inlining.Utilities.TypeError._
 import io.tvc.graphql.inlining.Utilities._
 import io.tvc.graphql.parsing.CommonModel.Name
@@ -125,12 +125,14 @@ object OutputInliner {
     * Given a recursive SelectionSet, go down through it
     * and create a TypeTree by inlining all the type definitions of it's fields
     */
-  private def createTree(cursor: FieldCursor, selectionSet: SelectionSet): Either[TypeError, RecTypeTree] =
+  private def createTree(cursor: FieldCursor, selectionSet: SelectionSet): OrMissing[Object[RecTypeTree]] =
     selectionSet.fields.traverse {
-      case f @ Node(other) => cursor.down(f).flatMap(c => createTree(c, other).map(createField(c)))
-      case f               => cursor.down(f).flatMap(c => createScalarField(c))
+      case f @ Node(other) =>
+        cursor.down(f).flatMap(c => createTree(c, other).map(f => createField(c)(Fix[TypeTree](f))))
+      case f               =>
+        cursor.down(f).flatMap(c => createScalarField(c))
     }.map { fields =>
-      TypeTree.obj(
+      Object(
         Metadata(cursor.focus.tpe.description.map(_.value), cursor.focus.tpe.name.value),
         fields
       )
@@ -140,7 +142,7 @@ object OutputInliner {
     * Perform the type checking, that is go through all the fields in the query,
     * find out what their type should be and inline that type into a TypeTree
     */
-  def run(schema: Schema, selectionSet: SelectionSet): OrMissing[RecTypeTree] =
+  def run(schema: Schema, selectionSet: SelectionSet): OrMissing[Object[RecTypeTree]] =
     for {
       root <- findTypeDefinition(schema, NamedType(Name("Query")))
       queryDef = FieldDefinition(None, Name("Query"), List.empty, NamedType(Name("Query")), List.empty)

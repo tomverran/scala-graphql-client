@@ -22,33 +22,36 @@ class ScalaCodeGeneratorTest extends WordSpec with Matchers {
         """
           |@JsonCodec
           |case class Inputs(foo: Baz)
-          |
-          |object Inputs {
-          |  implicit val toInput: ToInputValue[Inputs] = ToInputValue.derive
-          |}
         """.trim.stripMargin
     }
 
     "Produce correct query signatures given no variables" in {
-      val qry = Query("Foo", "Query", "{}", TypeTree.Object(Metadata(None, "Inputs"), List.empty))
-      queryFunction(qry) shouldBe s"""
-        |def apply(): String =
-        |  $quotes
-        |  |query Foo()
-        |  |{}
-        |  $quotes.stripMargin""".stripMargin.trim
+      val qry = Query("Foo", "{}", None)
+      queryFunction(qry, TypeRef("Result")) shouldBe
+        s"""
+           |def apply: Request[Response[Result]] =
+           |  Request[Response[Result]](
+           |    query = $quotes
+           |    |{}
+           |    $quotes.trim.stripMargin
+           |  )
+         """.trim.stripMargin
     }
 
     "Produce correct query signatures given a variable" in {
 
       val va = Field(FieldName(None, "foo"), InputValue(default = None, TypeRef("Baz")), List(NonNullType))
-      val qry = Query("Foo", "Query", "{}", TypeTree.Object(Metadata(None, "Inputs"), List(va)))
-      queryFunction(qry) shouldBe s"""
-        |def apply(foo: Baz): String =
-        |  $quotes
-        |  |query Foo($$foo:$${Baz.toInput.to(foo)})
-        |  |{}
-        |  $quotes.stripMargin""".stripMargin.trim
+      val qry = Query("Foo", "{foo(bar:$baz)}", Some(TypeTree.Object(Metadata(None, "Variables"), List(va))))
+      queryFunction(qry, TypeRef("Result")) shouldBe
+      s"""
+        |def apply(foo: Baz): Request[Response[Result]] =
+        |  Request[Response[Result]](
+        |    query = $quotes
+        |    |{foo(bar:$$baz)}
+        |    $quotes.trim.stripMargin,
+        |    variables = Variables(foo).asJson
+        |  )
+      """.trim.stripMargin
     }
 
     "Not generate case classes for built in types" in {

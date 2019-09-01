@@ -13,6 +13,9 @@ sealed trait Response[+A]
 
 object Response {
 
+  implicit def optionalList[A: Decoder]: Decoder[List[A]] =
+    Decoder.decodeOption(Decoder.decodeList(Decoder[A])).map(_.toList.flatten)
+
   case class Location(line: Int, column: Int)
 
   object Location {

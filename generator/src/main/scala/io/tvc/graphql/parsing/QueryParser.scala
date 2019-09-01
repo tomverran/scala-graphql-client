@@ -2,7 +2,7 @@ package io.tvc.graphql.parsing
 
 import atto.Parser
 import atto.parser.character.char
-import atto.parser.combinator.{get, err, many, ok, opt}
+import atto.parser.combinator.{err, many, ok, opt}
 import atto.syntax.parser._
 import cats.syntax.apply._
 import io.tvc.graphql.parsing.Combinators._
@@ -41,20 +41,14 @@ object QueryParser {
   private val selectionSet: Parser[SelectionSet] =
     recCurlyBrackets(many(ws(field))).map(SelectionSet.apply)
 
-  private val operationDefinition: Parser[ParsedQuery] =
+  private val operationDefinition: Parser[OperationDefinition] =
     (
       opt(operationType).map(_.getOrElse(Query)),
       ws(opt(name)),
       optRecParens(many(variableDefinition)).map(_.flatten),
-      get,
       selectionSet
-    ).mapN { case (opt, na, vars, remaining, selection) =>
-      ParsedQuery(
-        OperationDefinition(opt, na, vars, selection),
-        stringValue = remaining
-      )
-    }
+    ).mapN(OperationDefinition.apply)
 
-  def parse(string: String): Either[String, ParsedQuery] =
+  def parse(string: String): Either[String, OperationDefinition] =
     operationDefinition.parseOnly(string).either
 }
