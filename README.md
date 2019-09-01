@@ -4,17 +4,20 @@ The idea is this'll be a Scala GraphQL client that uses code generation (remembe
 produce strongly typed GraphQL calls. I can't really see how else you'd do it given
 that GraphQL lets you select as much or as little from a type as you want.
 
-Currently there are parsers for queries and (most) of the parts of a schema,
-the idea is then to write code to stitch the resulting data together to produce scala files
-containing the unique types used by each GraphQL query.
+Remaining parts of the library to implement before release are
+
+- Union types
+- Default input values
 
 Currently the example GitHub query in `src/main/resources/query.graphql` produces the following:
 
-
 ```scala
 package com.github.api
-import io.tvc.graphql.Runtime._
+import io.tvc.graphql.Builtin._
+import io.tvc.graphql.Request
+import io.tvc.graphql.Response
 import io.circe.generic.JsonCodec
+import io.circe.syntax._
 import enumeratum._
 
 object Foo {
@@ -41,12 +44,7 @@ object Foo {
     * An account on GitHub, with one or more owners, that has repositories, members and teams.
     */
   @JsonCodec
-  case class Organization(
-    repo1: Option[Repository],
-    repo2: Option[Repository],
-    repo3: Option[Repository],
-    repo4: Option[Repository]
-  )
+  case class Organization(repo1: Option[Repository])
   
   /**
     * An edge in a connection.
@@ -70,7 +68,10 @@ object Foo {
     * The query root of GitHub's GraphQL interface.
     */
   @JsonCodec
-  case class Query(organization: Option[Organization])
+  case class Output(organization: Option[Organization])
+  
+  @JsonCodec
+  case class Variables(organization: String, repository: String)
   
   sealed trait MergeableState extends EnumEntry
   
@@ -81,76 +82,31 @@ object Foo {
     val values = findValues
   }
   
-  val query: String = 
-    """
-    |query foo {
-    |    organization(login: "blah") {
-    |        repo1: repository(name: "repo-one") {
-    |            pullRequests(states: OPEN, first: 100) {
-    |                edges {
-    |                    node {
-    |                        author {
-    |                            login
-    |                        }
-    |                        mergeable
-    |                        number
-    |                        title
-    |                        body
-    |                    }
-    |                    cursor
-    |                }
-    |            }
-    |        }
-    |        repo2: repository(name: "repo-two") {
-    |            pullRequests(states: OPEN, first: 100) {
-    |                edges {
-    |                    node {
-    |                        author {
-    |                            login
-    |                        }
-    |                        mergeable
-    |                        number
-    |                        title
-    |                        body
-    |                    }
-    |                    cursor
-    |                }
-    |            }
-    |        }
-    |        repo3: repository(name: "repo-three") {
-    |            pullRequests(states: OPEN, first: 100) {
-    |                edges {
-    |                    node {
-    |                        author {
-    |                            login
-    |                        }
-    |                        mergeable
-    |                        number
-    |                        title
-    |                        body
-    |                    }
-    |                    cursor
-    |                }
-    |            }
-    |        }
-    |        repo4: repository(name: "repo-four") {
-    |            pullRequests(states: OPEN, first: 100) {
-    |                edges {
-    |                    node {
-    |                        author {
-    |                            login
-    |                        }
-    |                        mergeable
-    |                        number
-    |                        title
-    |                        body
-    |                    }
-    |                    cursor
-    |                }
-    |            }
-    |        }
-    |    }
-    |}
-    """.stripMargin
+  def apply(organization: String, repository: String): Request[Response[Output]] =
+    Request[Response[Output]](
+      query = """
+      |query foo($organization:String! $repository:String!) {
+      |    organization(login: $organization) {
+      |        repo1: repository(name: $repository) {
+      |            pullRequests(states: OPEN, first: 100) {
+      |                edges {
+      |                    node {
+      |                        author {
+      |                            login
+      |                        }
+      |                        mergeable
+      |                        number
+      |                        title
+      |                        body
+      |                    }
+      |                    cursor
+      |                }
+      |            }
+      |        }
+      |    }
+      |}
+      """.trim.stripMargin,
+      variables = Variables(organization, repository).asJson
+    )
 }
 ```

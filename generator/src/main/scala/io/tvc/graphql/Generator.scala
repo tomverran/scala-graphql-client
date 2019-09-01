@@ -1,8 +1,9 @@
 package io.tvc.graphql
 import io.tvc.graphql.parsing.{QueryParser, SchemaParser}
-import io.tvc.graphql.transform.ScalaCodeGen.generate
-import io.tvc.graphql.transform.TypeChecker
-import io.tvc.graphql.transform.TypeDeduplicator.deduplicate
+import io.tvc.graphql.generation.ScalaCodeGenerator.{GenerationInput, Query, generate}
+import io.tvc.graphql.generation.TypeDeduplicator
+import io.tvc.graphql.inlining.{InputInliner, OutputInliner}
+import io.tvc.graphql.generation.TypeDeduplicator.deduplicate
 
 object Generator {
 
@@ -15,8 +16,27 @@ object Generator {
   def generateCode(schema: String, namespace: String, query: String): Either[String, GeneratedQueryCode] =
     for {
       sch <- SchemaParser.parse(schema)
-      opDefinition <- QueryParser.parse(query)
-      name = opDefinition.name.fold("AnonymousQuery")(_.value.capitalize)
-      tree <- TypeChecker.run(sch, opDefinition).left.map(te => s"$te")
-    } yield GeneratedQueryCode(namespace, name, generate(name, namespace, query, deduplicate(tree)))
+      parsedQuery <- QueryParser.parse(query)
+      outputs <- OutputInliner.run(sch, parsedQuery.selectionSet).left.map(te => s"$te")
+      inputs <- InputInliner.run(sch, parsedQuery.variableDefinitions).left.map(te => s"$te")
+    } yield {
+      val deduped: TypeDeduplicator.Output = deduplicate(inputs, outputs)
+      val queryName = parsedQuery.name.fold("AnonymousQuery")(_.value.capitalize)
+      GeneratedQueryCode(
+        namespace = namespace,
+        name = queryName,
+        code = generate(
+          GenerationInput(
+            namespace,
+            deduped.root,
+            deduped.types,
+            query = Query(
+              name = queryName,
+              stringValue = query,
+              inputs = deduped.variables
+            )
+          )
+        )
+      )
+    }
 }

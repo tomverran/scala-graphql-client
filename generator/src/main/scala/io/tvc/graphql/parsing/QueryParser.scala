@@ -13,6 +13,15 @@ import io.tvc.graphql.parsing.QueryModel._
 
 object QueryParser {
 
+  /**
+    * We need to keep all the selection sets as a string
+    * to later output them when generating code
+    */
+  case class ParsedQuery(
+    operation: OperationDefinition,
+    stringValue: String
+  )
+
   private val operationType: Parser[OperationType] =
     name.flatMap {
       case Name("query") => ok(OperationType.Query)
