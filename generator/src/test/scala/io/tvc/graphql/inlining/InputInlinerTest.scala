@@ -21,8 +21,7 @@ class InputInlinerTest extends WordSpec with Matchers {
   "InputInliner" should {
 
     "Work with no variables" in {
-      val expected = TypeTree.Object(Metadata(None, "Inputs"), List.empty)
-      InputInliner.run(List.empty, List.empty) shouldBe Right(expected)
+      InputInliner.run(List.empty, List.empty) shouldBe Right(None)
     }
 
     "Recursively inline any references to input objects" in {
@@ -79,7 +78,7 @@ class InputInlinerTest extends WordSpec with Matchers {
       )
 
       val expected: InputObject[RecInputTypeTree] = TypeTree.Object(
-        meta = Metadata(None, "Inputs"),
+        meta = Metadata(None, "Variables"),
         fields = List(
           Field(
             name = FieldName(None, "foo"),
@@ -129,7 +128,7 @@ class InputInlinerTest extends WordSpec with Matchers {
         )
       )
 
-      InputInliner.run(schema, arguments) shouldBe Right(expected)
+      InputInliner.run(schema, arguments) shouldBe Right(Some(expected))
     }
   }
 }
