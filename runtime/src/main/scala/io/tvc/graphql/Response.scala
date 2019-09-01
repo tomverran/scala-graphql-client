@@ -1,5 +1,6 @@
 package io.tvc.graphql
 
+import cats.MonadError
 import cats.data.NonEmptyList
 import cats.syntax.functor._
 import io.circe.Decoder
@@ -13,6 +14,10 @@ sealed trait Response[+A]
 
 object Response {
 
+  /**
+    * Decoder that decodes a list but returns an empty list if
+    * the field doesn't exist rather than throwing an error
+    */
   implicit def optionalList[A: Decoder]: Decoder[List[A]] =
     Decoder.decodeOption(Decoder.decodeList(Decoder[A])).map(_.toList.flatten)
 
@@ -37,4 +42,26 @@ object Response {
 
   implicit def decoder[A: Decoder]: Decoder[Response[A]] =
     deriveDecoder[Success[A]].widen[Response[A]].or(deriveDecoder[Failure].widen)
+
+  implicit class ResponseOps[A](response: Response[A]) {
+
+    /**
+      * Convert the Response into an either.
+      * We convert successes into failures if they have any errors at all
+      */
+    def either: Either[NonEmptyList[Error], A] =
+      response match {
+        case Failure(errors) => Left(errors)
+        case Success(_, er :: errors) => Left(NonEmptyList(er, errors))
+        case Success(data, Nil) => Right(data)
+      }
+
+    /**
+      * Convert the response into an effect type F
+      * by putting any errors into an exception
+      */
+    def value[F[_]](implicit F: MonadError[F, Throwable]): F[A] =
+      F.fromEither(either.left.map(errors => new Exception(errors.toList.mkString(", "))))
+  }
+
 }
