@@ -1,9 +1,9 @@
 package io.tvc.graphql.parsing
 
+import io.tvc.graphql.parsing.CommonModel.OperationType.Query
 import io.tvc.graphql.parsing.CommonModel.Type.{ListType, NamedType, NonNullType}
 import io.tvc.graphql.parsing.CommonModel.Value.{EnumValue, IntValue, StringValue}
 import io.tvc.graphql.parsing.CommonModel.{Argument, Name, Variable}
-import io.tvc.graphql.parsing.QueryModel.OperationType.Query
 import io.tvc.graphql.parsing.QueryModel.{Field, OperationDefinition, SelectionSet, VariableDefinition}
 import io.tvc.graphql.parsing.QueryParser.parse
 import org.scalatest.{Matchers, WordSpec}
@@ -89,8 +89,13 @@ class QueryParserTest extends WordSpec with Matchers {
 
   "Query parser: examples" should {
 
-    "Parse the one GitHub query I got round to writing" in {
-      QueryParser.parse(Loader.load("/queries/query.graphql")) should matchPattern { case Right(_) => }
+    "Parse the single repo GitHub query" in {
+      QueryParser.parse(Loader.load("/queries/single_repo.graphql")) should matchPattern { case Right(_) => }
+    }
+
+    "Parse the all repos GitHub query" in {
+      val res = QueryParser.parse(Loader.load("/queries/all_repos.graphql"))
+      res should matchPattern { case Right(_) => }
     }
   }
 }

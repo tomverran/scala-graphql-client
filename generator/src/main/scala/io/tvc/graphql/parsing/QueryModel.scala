@@ -4,16 +4,6 @@ import io.tvc.graphql.parsing.CommonModel._
 
 object QueryModel {
 
-  /**
-   *  https://graphql.github.io/graphql-spec/June2018/#sec-Language.Operations
-   */
-  sealed trait OperationType
-
-  object OperationType {
-    case object Query extends OperationType
-    case object Mutation extends OperationType
-    case object Subscription extends OperationType
-  }
 
   /**
    * https://graphql.github.io/graphql-spec/June2018/#VariableDefinition

@@ -3,6 +3,18 @@ package io.tvc.graphql.parsing
 object CommonModel {
 
   /**
+   *  https://graphql.github.io/graphql-spec/June2018/#sec-Language.Operations
+   */
+  sealed trait OperationType
+
+  object OperationType {
+    case object Query extends OperationType
+    case object Mutation extends OperationType
+    case object Subscription extends OperationType
+    val values = List(Query, Mutation, Subscription)
+  }
+
+  /**
    * https://graphql.github.io/graphql-spec/June2018/#Name
    */
   case class Name(value: String) extends AnyVal

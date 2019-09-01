@@ -2,7 +2,7 @@ package io.tvc.graphql.parsing
 
 import atto.Parser
 import atto.Parser.{Failure, Success, TResult}
-import atto.parser.character.{char, whitespace}
+import atto.parser.character.{char, whitespace, notChar}
 import atto.parser.combinator.{choice, discardLeft, many, opt}
 import atto.parser.text.stringCI
 import atto.parser.{character, combinator}
@@ -37,12 +37,18 @@ object Combinators {
   def recCurlyBrackets[A](p: => Parser[A]): Parser[A] =
     ws(rec(discardLeft(ws(char('{')), p) <~ ws(char('}'))))
 
+  private val ignored: Parser[Char] =
+    whitespace | char(',')
+
+  private val comment: Parser[String] =
+    many(ignored) ~> char('#') ~> many(notChar('\n')).map(_.mkString) <~ char('\n') <~ many(ignored)
+
   /**
    * Given a parser,
-    * discard any trailing whitespace
+    * discard any trailing whitespace or leading / trailing comments
    */
   def ws[A](p: => Parser[A]): Parser[A] =
-    p <~ many(whitespace | char(','))
+    opt(comment) ~> p <~ many(ignored) <~ opt(comment)
 
   def oneOfChar(chars: Char*): Parser[Char] =
     choice(chars.map(char):_*)

@@ -21,56 +21,61 @@ class InputInlinerTest extends WordSpec with Matchers {
   "InputInliner" should {
 
     "Work with no variables" in {
-      InputInliner.run(List.empty, List.empty) shouldBe Right(None)
+      InputInliner.run(Schema(None, Map.empty), List.empty) shouldBe Right(None)
     }
 
     "Recursively inline any references to input objects" in {
 
-      val schema: Schema = List(
-        ScalarTypeDefinition(
-          description = None,
-          name = Name("FooScalar"),
-          directives = List.empty
-        ),
-        EnumTypeDefinition(
-          description = None,
-          name = Name("Time"),
-          directives = List.empty,
-          values = List(
-            EnumValueDefinition(
+      val schema: Schema =
+        Schema(
+          schemaDefinition = None,
+          typeDefinitions = List(
+            ScalarTypeDefinition(
               description = None,
-              value = EnumValue(Name("Whatever")),
+              name = Name("FooScalar"),
               directives = List.empty
             ),
-            EnumValueDefinition(
+            EnumTypeDefinition(
               description = None,
-              value = EnumValue(Name("Whenever")),
-              directives = List.empty
-            )
-          )
-        ),
-        InputObjectTypeDefinition(
-          None,
-          Name("Foo"),
-          List.empty,
-          List(
-            InputValueDefinition(
-              description = None,
-              name = Name("blah"),
-              `type` = NamedType(Name("String")),
-              defaultValue = Some(StringValue("Blah")),
-              directives = List.empty
+              name = Name("Time"),
+              directives = List.empty,
+              values = List(
+                EnumValueDefinition(
+                  description = None,
+                  value = EnumValue(Name("Whatever")),
+                  directives = List.empty
+                ),
+                EnumValueDefinition(
+                  description = None,
+                  value = EnumValue(Name("Whenever")),
+                  directives = List.empty
+                )
+              )
             ),
-            InputValueDefinition(
-              description = None,
-              name = Name("something"),
-              `type` = NamedType(Name("Time")),
-              defaultValue = None,
-              directives = List.empty
+            InputObjectTypeDefinition(
+              None,
+              Name("Foo"),
+              List.empty,
+              List(
+                InputValueDefinition(
+                  description = None,
+                  name = Name("blah"),
+                  `type` = NamedType(Name("String")),
+                  defaultValue = Some(StringValue("Blah")),
+                  directives = List.empty
+                ),
+                InputValueDefinition(
+                  description = None,
+                  name = Name("something"),
+                  `type` = NamedType(Name("Time")),
+                  defaultValue = None,
+                  directives = List.empty
+                )
+              )
             )
-          )
+          ).groupBy(_.name).mapValues(_.head)
         )
-      )
+
 
       val arguments: List[VariableDefinition] = List(
         VariableDefinition(Variable("foo"), NamedType(Name("Foo")), default = None),

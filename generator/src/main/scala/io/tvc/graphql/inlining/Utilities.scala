@@ -25,8 +25,10 @@ object Utilities {
    /**
     * https://graphql.github.io/graphql-spec/June2018/#sec-Scalars
     */
-  val predefinedTypes: List[TypeDefinition] =
-    List("Int", "Float", "Boolean", "String", "ID").map(t => ScalarTypeDefinition(None, Name(t), List.empty))
+  val predefinedTypes: Map[Name, TypeDefinition] =
+    List("Int", "Float", "Boolean", "String", "ID")
+      .map(t => Name(t) -> ScalarTypeDefinition(None, Name(t), List.empty))
+      .toMap
 
   /**
    * Given a type, which may be non nullable or a list
@@ -46,7 +48,7 @@ object Utilities {
     * but we include the input type including modifiers in the response
     */
   def findTypeDefinition(schema: Schema, tpe: Type): OrMissing[TypeDefinition] =
-    (predefinedTypes ++ schema).find(_.name == typeName(tpe))
+    (predefinedTypes ++ schema.typeDefinitions).get(typeName(tpe))
       .toRight(MissingType(typeName(tpe).value))
 
   /**

@@ -19,7 +19,6 @@ val runtime = (project in file("runtime"))
       "com.beachape" %% "enumeratum-circe" % enumeratumCirceVersion,
       compilerPlugin("org.scalamacros" % "paradise" % "2.1.0" cross CrossVersion.full),
       "org.scalatest" %% "scalatest" % "3.0.8" % Test,
-      "org.scalacheck" %% "scalacheck" % "1.14.0" % Test,
     )
   )
 
@@ -35,7 +34,8 @@ val generator = (project in file("generator"))
       "org.tpolecat" %% "atto-core" % "0.6.5",
       "io.higherkindness" %% "droste-core" % "0.7.0",
       "org.scalatest" %% "scalatest" % "3.0.8" % Test,
-      compilerPlugin("org.typelevel" %% "kind-projector" % "0.10.3")
+      compilerPlugin("org.typelevel" %% "kind-projector" % "0.10.3"),
+      "org.scalacheck" %% "scalacheck" % "1.14.0" % Test,
     )
   )
 

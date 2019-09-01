@@ -99,7 +99,9 @@ object ScalaCodeGenerator {
      """.stripMargin.trim
 
   private def queryArguments(q: Query): String =
-    q.inputs.fold("")(f => argList(f.fields.map(f => s"${f.name.value}: ${f.`type`.value.name}")))
+    q.inputs.fold("") { f =>
+      argList(f.fields.map(f => s"${f.name.value}: ${scalaType(f.`type`.value, f.modifiers)}"))
+    }
 
   private def queryVariables(q: InputObject[TypeRef]): String =
     s"${q.meta.name}${argList(q.fields.map(_.name.value))}.asJson"

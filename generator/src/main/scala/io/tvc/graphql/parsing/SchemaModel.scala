@@ -1,5 +1,6 @@
 package io.tvc.graphql.parsing
 
+import cats.data.NonEmptyList
 import io.tvc.graphql.parsing.CommonModel.Value.EnumValue
 import io.tvc.graphql.parsing.CommonModel._
 
@@ -41,6 +42,16 @@ object SchemaModel {
     `type`: Type,
     directives: Directives
   )
+
+  /**
+    * https://graphql.github.io/graphql-spec/June2018/#RootOperationTypeDefinition
+    */
+  case class RootOperationTypeDefinition(operationType: OperationType, name: Name)
+
+  /**
+    * https://graphql.github.io/graphql-spec/June2018/#sec-Schema
+    */
+  case class SchemaDefinition(definitions: NonEmptyList[RootOperationTypeDefinition])
 
   /**
    * https://graphql.github.io/graphql-spec/June2018/#TypeDefinition
@@ -96,5 +107,8 @@ object SchemaModel {
     ) extends TypeDefinition
   }
 
-  type Schema = List[TypeDefinition]
+  case class Schema(
+    schemaDefinition: Option[SchemaDefinition],
+    typeDefinitions: Map[Name, TypeDefinition]
+  )
 }

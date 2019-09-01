@@ -2,6 +2,7 @@ package io.tvc.graphql.parsing
 
 import atto.Parser
 import atto.parser.character.{char, letter, letterOrDigit, satisfy}
+import atto.parser.combinator.{err, many, ok, opt}
 import atto.parser.combinator.{choice, many, manyN, opt}
 import atto.parser.numeric.{float, int}
 import atto.parser.text.{stringCI, stringOf, stringOf1}
@@ -51,6 +52,14 @@ object CommonParser {
 
   val validString: Parser[String] =
     blockString | singleLineString
+
+  val operationType: Parser[OperationType] =
+    name.flatMap {
+      case Name("query") => ok(OperationType.Query)
+      case Name("mutation") => ok(OperationType.Mutation)
+      case Name("subscription") => ok(OperationType.Subscription)
+      case Name(n) => err(s"Expected one of query/mutation/subscription, got $n")
+    }
 
   /**
    * Parse the type (of a variable) - we don't support the ! operator

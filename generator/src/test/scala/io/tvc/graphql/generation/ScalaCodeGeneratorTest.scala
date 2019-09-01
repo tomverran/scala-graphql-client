@@ -4,7 +4,7 @@ import io.tvc.graphql.generation.ScalaCodeGenerator._
 import io.tvc.graphql.generation.TypeDeduplicator.TypeRef
 import io.tvc.graphql.inlining.InputInliner.InputValue
 import io.tvc.graphql.inlining.TypeTree
-import io.tvc.graphql.inlining.TypeTree.TypeModifier.NonNullType
+import io.tvc.graphql.inlining.TypeTree.TypeModifier.{NonNullType, NullableType}
 import io.tvc.graphql.inlining.TypeTree.{Field, FieldName, Metadata, Scalar}
 import org.scalatest.{Matchers, WordSpec}
 
@@ -40,11 +40,11 @@ class ScalaCodeGeneratorTest extends WordSpec with Matchers {
 
     "Produce correct query signatures given a variable" in {
 
-      val va = Field(FieldName(None, "foo"), InputValue(default = None, TypeRef("Baz")), List(NonNullType))
+      val va = Field(FieldName(None, "foo"), InputValue(default = None, TypeRef("Baz")), List(NullableType))
       val qry = Query("Foo", "{foo(bar:$baz)}", Some(TypeTree.Object(Metadata(None, "Variables"), List(va))))
       queryFunction(qry, TypeRef("Result")) shouldBe
       s"""
-        |def apply(foo: Baz): Request[Response[Result]] =
+        |def apply(foo: Option[Baz]): Request[Response[Result]] =
         |  Request[Response[Result]](
         |    query = $quotes
         |    |{foo(bar:$$baz)}

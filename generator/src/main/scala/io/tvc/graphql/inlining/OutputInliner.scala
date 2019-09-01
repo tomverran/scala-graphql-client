@@ -7,8 +7,8 @@ import higherkindness.droste.data.Fix
 import io.tvc.graphql.inlining.TypeTree.{FieldName, Metadata, Object, RecTypeTree}
 import io.tvc.graphql.inlining.Utilities.TypeError._
 import io.tvc.graphql.inlining.Utilities._
-import io.tvc.graphql.parsing.CommonModel.Name
 import io.tvc.graphql.parsing.CommonModel.Type.NamedType
+import io.tvc.graphql.parsing.CommonModel.{Name, OperationType}
 import io.tvc.graphql.parsing.QueryModel.{Field, SelectionSet}
 import io.tvc.graphql.parsing.SchemaModel.TypeDefinition._
 import io.tvc.graphql.parsing.SchemaModel.{FieldDefinition, Schema, TypeDefinition}
@@ -31,21 +31,21 @@ object OutputInliner {
     * where the previous items are fields with complex types we've delved down into,
     * this is kind of inspired by Circe's cursor
    */
-  private case class FieldCursor(
+  private case class Cursor(
     schema: Schema,
     prev: Vector[CursorField[ComplexType]],
     focus: CursorField[TypeDefinition])
   {
 
-    def down(field: Field): OrMissing[FieldCursor] =
+    def down(field: Field): OrMissing[Cursor] =
       down(FieldName(field.alias.map(_.value), field.name.value))
 
-    def down(field: FieldName): OrMissing[FieldCursor] =
+    def down(field: FieldName): OrMissing[Cursor] =
       for {
         complexType <- ComplexType.fromDefinition(focus.tpe)
         fieldDef <- findFieldDefinition(complexType, field)
         tpe <- findTypeDefinition(schema, fieldDef.`type`)
-      } yield FieldCursor(schema, prev :+ focus.copy(tpe = complexType), CursorField(field, fieldDef, tpe))
+      } yield Cursor(schema, prev :+ focus.copy(tpe = complexType), CursorField(field, fieldDef, tpe))
 
     def parent: Option[CursorField[ComplexType]] =
       prev.lastOption
@@ -107,7 +107,7 @@ object OutputInliner {
     * Given a cursor and the type for a field
     * then create a TypeTree field with the given inlined type
     */
-  private def createField(c: FieldCursor)(tpe: RecTypeTree): TypeTree.Field[RecTypeTree] =
+  private def createField(c: Cursor)(tpe: RecTypeTree): TypeTree.Field[RecTypeTree] =
     TypeTree.Field(
       `type` = tpe,
       name = c.focus.name,
@@ -118,14 +118,14 @@ object OutputInliner {
     * Create a field from a cursor, assuming the cursor is pointing
     * at a scalar type definition. Will fail with a TypeError if it isn't
     */
-  private def createScalarField(cursor: FieldCursor): Either[TypeError, TypeTree.Field[RecTypeTree]] =
+  private def createScalarField(cursor: Cursor): Either[TypeError, TypeTree.Field[RecTypeTree]] =
     createScalar(cursor.focus.tpe).map(f => createField(cursor)(Fix[TypeTree](f)))
 
   /**
     * Given a recursive SelectionSet, go down through it
     * and create a TypeTree by inlining all the type definitions of it's fields
     */
-  private def createTree(cursor: FieldCursor, selectionSet: SelectionSet): OrMissing[Object[RecTypeTree]] =
+  private def createTree(cursor: Cursor, selectionSet: SelectionSet): OrMissing[Object[RecTypeTree]] =
     selectionSet.fields.traverse {
       case f @ Node(other) =>
         cursor.down(f).flatMap(c => createTree(c, other).map(f => createField(c)(Fix[TypeTree](f))))
@@ -139,14 +139,27 @@ object OutputInliner {
     }
 
   /**
+    * From the GraphQL spec:
+    * While any type can be the root operation type for a GraphQL operation, the type system definition
+    * language can omit the schema definition when the query, mutation, and subscription root types are named
+    * Query, Mutation, and Subscription respectively.
+    */
+  private def findRoot(schema: Schema, op: OperationType): Name =
+    schema.schemaDefinition
+      .flatMap(_.definitions.find(_.operationType == op))
+      .fold(Name(op.toString))(_.name)
+
+  /**
     * Perform the type checking, that is go through all the fields in the query,
     * find out what their type should be and inline that type into a TypeTree
     */
-  def run(schema: Schema, selectionSet: SelectionSet): OrMissing[Object[RecTypeTree]] =
+  def run(schema: Schema, op: OperationType, select: SelectionSet): OrMissing[Object[RecTypeTree]] = {
+    val rootName = findRoot(schema, op)
     for {
-      root <- findTypeDefinition(schema, NamedType(Name("Query")))
-      queryDef = FieldDefinition(None, Name("Query"), List.empty, NamedType(Name("Query")), List.empty)
-      cursor = FieldCursor(schema, Vector.empty, CursorField(FieldName(None, "Query"), queryDef, root))
-      result <- createTree(cursor, selectionSet)
+      root <- findTypeDefinition(schema, NamedType(rootName))
+      queryDef = FieldDefinition(None, rootName, List.empty, NamedType(rootName), List.empty)
+      cursor = Cursor(schema, Vector.empty, CursorField(FieldName(None, rootName.value), queryDef, root))
+      result <- createTree(cursor, select)
     } yield result
+  }
 }

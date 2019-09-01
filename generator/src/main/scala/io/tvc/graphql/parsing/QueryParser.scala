@@ -2,13 +2,12 @@ package io.tvc.graphql.parsing
 
 import atto.Parser
 import atto.parser.character.char
-import atto.parser.combinator.{err, many, ok, opt}
+import atto.parser.combinator.{many, opt}
 import atto.syntax.parser._
 import cats.syntax.apply._
 import io.tvc.graphql.parsing.Combinators._
-import io.tvc.graphql.parsing.CommonModel._
+import io.tvc.graphql.parsing.CommonModel.OperationType.Query
 import io.tvc.graphql.parsing.CommonParser._
-import io.tvc.graphql.parsing.QueryModel.OperationType.Query
 import io.tvc.graphql.parsing.QueryModel._
 
 object QueryParser {
@@ -22,13 +21,7 @@ object QueryParser {
     stringValue: String
   )
 
-  private val operationType: Parser[OperationType] =
-    name.flatMap {
-      case Name("query") => ok(OperationType.Query)
-      case Name("mutation") => ok(OperationType.Mutation)
-      case Name("subscription") => ok(OperationType.Subscription)
-      case Name(n) => err(s"Expected one of query/mutation/subscription, got $n")
-    }
+
 
   private val variableDefinition: Parser[VariableDefinition] =
     (

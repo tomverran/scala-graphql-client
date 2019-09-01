@@ -4,6 +4,10 @@ import atto.Parser
 import atto.parser.character.char
 import atto.parser.combinator._
 import atto.syntax.parser._
+import cats.data.NonEmptyList
+import cats.instances.either._
+import cats.instances.list._
+import cats.syntax.alternative._
 import cats.syntax.apply._
 import cats.syntax.functor._
 import io.tvc.graphql.parsing.Combinators._
@@ -59,26 +63,31 @@ object SchemaParser {
   private val inputObjectTypeDefinition: Parser[InputObjectTypeDefinition] =
     (description <~ str("input"), name, directives, inputFieldsDefinition).mapN(InputObjectTypeDefinition)
 
+  private val rootOperationTypeDefinition: Parser[RootOperationTypeDefinition] =
+    (ws(operationType) <~ ws(colon), name).mapN(RootOperationTypeDefinition.apply)
+
+  private val schemaDefinition: Parser[SchemaDefinition] =
+    str("schema") ~> recCurlyBrackets(many1(rootOperationTypeDefinition)).map(SchemaDefinition.apply)
+
   private val typeDefinition: Parser[TypeDefinition] =
-    choice[TypeDefinition](
-      scalarTypeDefinition.widen,
-      enumTypeDefinition.widen,
-      unionTypeDefinition.widen,
-      interfaceTypeDefinition.widen,
-      objectTypeDefinition.widen,
-      inputObjectTypeDefinition.widen
+    ws(
+      choice[TypeDefinition](
+        scalarTypeDefinition.widen,
+        enumTypeDefinition.widen,
+        unionTypeDefinition.widen,
+        interfaceTypeDefinition.widen,
+        objectTypeDefinition.widen,
+        inputObjectTypeDefinition.widen
+      ) | get.flatMap(txt => err(s"Expected type definition, got: ${txt.take(30)}..."))
     )
 
-  def parse(string: String): Either[String, List[TypeDefinition]] =
-    many1(typeDefinition).parseOnly(string).map(_.toList).either
+  private val definitions: Parser[NonEmptyList[Either[TypeDefinition, SchemaDefinition]]] =
+    many1(either(ws(typeDefinition), ws(schemaDefinition))) |
+    get.flatMap(txt => err(s"Expected type or schema, got ${txt.take(30)}..."))
 
-  //high quality production ready testing system
-//  println(QueryParser.operationDefinition.parseOnly(load("/queries/query.graphql")).done)
-//  println(scalarTypeDefinition.parseOnly("\"blah\" scalar Foo @bar(reason: \"why\") @baz(what: 2)   "))
-//  println(enumTypeDefinition.parseOnly(load("/schemas/enum.idl")).done)
-//  println(unionTypeDefinition.parseOnly(load("/schemas/union.idl")).done)
-//  println(interfaceTypeDefinition.parseOnly(load("/schemas/interface.idl")).done)
-//  println(objectTypeDefinition.parseOnly(load("/schemas/object.idl")).done)
-//  println(inputObjectTypeDefinition.parseOnly(load("/schemas/inputobject.idl")).done)
-//  println(schema.parseOnly(load("/schemas/schema.idl")).done)
+  def parse(string: String): Either[String, Schema] =
+    definitions.map { items =>
+      val (types, schemas) = items.toList.separate
+      Schema(schemas.headOption, types.groupBy(_.name).mapValues(_.head))
+    }.parseOnly(string).either
 }

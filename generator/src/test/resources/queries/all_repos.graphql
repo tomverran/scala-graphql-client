@@ -1,0 +1,21 @@
+query repositories($org: String! $first: Int $after: String) {
+    organization(login: $org) {
+        repositories(first: $first after: $after) {
+            edges {
+                cursor
+                node {
+                    pullRequests(states: OPEN, first: 20) {
+                        nodes {
+                            number
+                            title
+                            body
+                            mergeable
+                        }
+                    }
+                    url
+                    name
+                }
+            }
+        }
+    }
+}
