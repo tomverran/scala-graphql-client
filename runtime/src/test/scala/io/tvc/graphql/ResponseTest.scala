@@ -5,6 +5,7 @@ import io.circe.generic.JsonCodec
 import org.scalatest.{Matchers, WordSpec}
 import io.circe.parser.decode
 import io.tvc.graphql.Response.{Location, Success}
+import cats.instances.either._
 
 class ResponseTest extends WordSpec with Matchers {
 
@@ -16,6 +17,8 @@ class ResponseTest extends WordSpec with Matchers {
 
   @JsonCodec
   case class Output(organization: Option[Organization])
+
+  type OrError[A] = Either[Throwable, A]
 
   "Response" should {
 
@@ -154,6 +157,25 @@ class ResponseTest extends WordSpec with Matchers {
           )
         )
       )
+    }
+
+    "Turn a success into a Right if it has no errors" in {
+      Response.Success((), List.empty).either shouldBe Right(())
+    }
+
+    "Turn a success into a Left if it has any errors" in {
+      val error = Response.Error("foo", List.empty, List.empty)
+      Response.Success((), List(error)).either shouldBe Left(NonEmptyList.of(error))
+    }
+
+    "Turn a failure into a Left" in {
+      val error = Response.Error("foo", List.empty, List.empty)
+      Response.Failure(NonEmptyList.of(error)).either shouldBe Left(NonEmptyList.of(error))
+    }
+
+    "Turn a failure into a failed effect" in {
+      val error = Response.Error("foo", List.empty, List.empty)
+      Response.Failure(NonEmptyList.of(error)).value[OrError]should matchPattern { case Left(_) => }
     }
   }
 }
