@@ -3,8 +3,9 @@ package io.tvc.graphql.parsing
 import io.tvc.graphql.parsing.CommonModel.OperationType.Query
 import io.tvc.graphql.parsing.CommonModel.Type.{ListType, NamedType, NonNullType}
 import io.tvc.graphql.parsing.CommonModel.Value.{EnumValue, IntValue, StringValue}
-import io.tvc.graphql.parsing.CommonModel.{Argument, Name, Variable}
-import io.tvc.graphql.parsing.QueryModel.{Field, OperationDefinition, SelectionSet, VariableDefinition}
+import io.tvc.graphql.parsing.CommonModel.{Argument, Directive, Name, Variable}
+import io.tvc.graphql.parsing.QueryModel.Selection.{Field, FragmentSpread, InlineFragment}
+import io.tvc.graphql.parsing.QueryModel.{FragmentDefinition, OperationDefinition, SelectionSet, VariableDefinition}
 import io.tvc.graphql.parsing.QueryParser.parse
 import org.scalatest.{Matchers, WordSpec}
 
@@ -83,7 +84,31 @@ class QueryParserTest extends WordSpec with Matchers {
         )
       ))
 
-      parse(qry) shouldBe Right(expected)
+      parse(qry).map(_.operationDefinition) shouldBe Right(expected)
+    }
+  }
+
+  "Query parser: fragments" should {
+
+    "Parse a fragment spread" in {
+      val query = "query foo { ...fields @foo() }"
+      val result = QueryParser.parse(query).map(_.operationDefinition.selectionSet.fields.head)
+      result shouldBe Right(FragmentSpread(Name("fields"), List(Directive(Name("foo"), List.empty))))
+    }
+
+    "Parse an inline fragment" in {
+      val query = "query foo { ... on User { friends { count } } }"
+      val result = QueryParser.parse(query).map(_.operationDefinition.selectionSet.fields.head)
+      val count = SelectionSet(List(Field(None, Name("count"), List.empty, None)))
+      val friends = SelectionSet(List(Field(None, Name("friends"), List.empty, Some(count))))
+      result shouldBe Right(InlineFragment(NamedType(Name("User")), List.empty, friends))
+    }
+
+    "Parse a fragment definition" in {
+      val fragment = "query foo {} fragment bar on Baz { blah }"
+      val result = QueryParser.parse(fragment).map(_.fragmentDefinitions)
+      val blah = SelectionSet(List(Field(None, Name("blah"), List.empty, None)))
+      result shouldBe Right(List(FragmentDefinition(Name("bar"), NamedType(Name("Baz")), List.empty, blah)))
     }
   }
 

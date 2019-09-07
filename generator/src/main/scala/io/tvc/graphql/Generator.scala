@@ -16,7 +16,8 @@ object Generator {
   def generateCode(schema: String, namespace: String, query: String): Either[String, GeneratedQueryCode] =
     for {
       sch <- SchemaParser.parse(schema)
-      parsed <- QueryParser.parse(query)
+      executable <- QueryParser.parse(query)
+      parsed = executable.operationDefinition
       outputs <- OutputInliner.run(sch, parsed.operationType, parsed.selectionSet).left.map(te => s"$te")
       inputs <- InputInliner.run(sch, parsed.variableDefinitions).left.map(te => s"$te")
     } yield {

@@ -9,7 +9,8 @@ import io.tvc.graphql.inlining.Utilities.TypeError._
 import io.tvc.graphql.inlining.Utilities._
 import io.tvc.graphql.parsing.CommonModel.Type.NamedType
 import io.tvc.graphql.parsing.CommonModel.{Name, OperationType}
-import io.tvc.graphql.parsing.QueryModel.{Field, SelectionSet}
+import io.tvc.graphql.parsing.QueryModel.Selection.Field
+import io.tvc.graphql.parsing.QueryModel.SelectionSet
 import io.tvc.graphql.parsing.SchemaModel.TypeDefinition._
 import io.tvc.graphql.parsing.SchemaModel.{FieldDefinition, Schema, TypeDefinition}
 
@@ -129,8 +130,10 @@ object OutputInliner {
     selectionSet.fields.traverse {
       case f @ Node(other) =>
         cursor.down(f).flatMap(c => createTree(c, other).map(f => createField(c)(Fix[TypeTree](f))))
-      case f               =>
+      case f: Field =>
         cursor.down(f).flatMap(c => createScalarField(c))
+      case f =>
+          Left[TypeError, TypeTree.Field[RecTypeTree]](TypeError.Todo(f.toString))
     }.map { fields =>
       Object(
         Metadata(cursor.focus.tpe.description.map(_.value), cursor.focus.tpe.name.value),
